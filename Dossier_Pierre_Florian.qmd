@@ -1,0 +1,203 @@
+---
+title: "Dossier"
+author: "Pierre et Florian"
+format:
+  html:
+    toc: true
+    toc-title: Sommaire
+    code-fold: true
+    echo: true
+    eval: true
+    incremental: true
+  pdf:
+    toc: true
+    toc-title: Sommaire
+    echo: true
+    eval: true
+  revealjs:
+    incremental: true
+---
+
+Choix 2 : Série CVS  ou non saisonnière mensuelle 
+(Possibilité d’utiliser la série du dossier cours « Séries temporelles univariées »)  
+
+```{r}
+# Importation des librairies
+
+library(tidyquant)
+library(tidyverse)
+```
+
+# 1. Analyse préliminaire
+
+## a. Présentation et caractérisation de la série étudiée : source, définition, graphique
+
+```{r}
+# Importation des données
+
+cac40 <- tq_get("^FCHI", from = "2000-01-01", to = "2019-12-31") |> 
+  tq_transmute(select = close, mutate_fun = to.monthly) |> 
+  rename(cloture = close) 
+
+head(cac40, n=20)
+```
+
+La série de données utilisée dans cette analyse provient du site Yahoo Finance (https://finance.yahoo.com/), une plateforme de référence pour les données financières et boursières.
+
+Elle concerne l’indice CAC 40, qui regroupe les 40 plus grandes entreprises françaises cotées à la Bourse de Paris. Cet indice est un indicateur clé de la performance des marchés financiers en France.
+
+La série temporelle mensuelle commence en janvier 2000 et se termine en décembre 2019, couvrant ainsi une période de 20 ans.
+
+
+```{r}
+# Classe time series
+cac40_ts <- ts(data = cac40$cloture, start=c(2000, 01), frequency=12)
+
+plot.ts(cac40_ts)
+```
+
+
+
+## b. Détection des points atypiques. Présenter ces points sous forme de tableau (date, type de point (AO, TC …), t-stat) et trouver des explications économiques de 
+l’apparition des 3 plus importants 
+
+```{r}
+library(tsoutliers)
+
+fit <- tso(cac40_ts)
+plot(fit)
+show(fit)
+```
+
+À l’indice 97, soit en janvier 2008, le modèle détecte un changement négatif de niveau (LS) important sur le CAC 40, de l’ordre de –726 points. Il s'agit d’un point atypique structurel dans la série.
+Cette chute brutale de niveau subie par le CAC 40 en janvier 2008 correspond très probablement au début de la crise financière mondiale des subprimes. Le marché avait commencé à anticiper l'effondrement des banques, ce qui a provoqué une forte baisse des indices boursiers.
+
+
+```{r}
+# Série corrigée des points atypiques
+adj <- fit$yadj
+plot(adj)
+```
+
+
+## c. Vérifier la stationnarité de la série I(0) ou I(1)
+
+```{r}
+library(tseries)
+
+# Test KPSS
+kpss_test <- kpss.test(cac40_ts, null = "Level")
+print(kpss_test)
+```
+
+La p-value de 0.0549, légèrement supérieure à 0.05, suggère que l'hypothèse nulle n'est pas rejetée au seuil de 5%. Cela signifie que la série pourrait être stationnaire en niveau, mais avec un léger doute, étant donné que la p-value est proche de la limite. Bien que l'on ne puisse pas rejeter l'hypothèse de stationnarité, il subsiste une incertitude quant à la stationnarité de la série.
+
+
+```{r}
+# Test de Dickey-Fuller Augmenté
+adf_test <- adf.test(cac40_ts, alternative = "stationary")
+print(adf_test)
+```
+
+La p-value de 0.1814, supérieure à 0.05, suggère que l'hypothèse nulle n'est pas rejetée au seuil de 5%. Cela indique que la série est probablement non stationnaire et pourrait contenir une racine unitaire. En d'autres termes, la série suit probablement un processus non stationnaire d'ordre 1 (I(1)) et nécessite une différenciation pour devenir stationnaire.
+
+
+```{r}
+# Différenciation de la série
+diff_cac40_ts <- diff(cac40_ts)
+ts.plot(diff_cac40_ts)
+```
+
+```{r}
+# Test KPSS
+kpss_test_diff <- kpss.test(diff_cac40_ts, null = "Level")
+print(kpss_test_diff)
+```
+
+La p-value de 0.1, supérieure à 0.05, suggère que l'hypothèse nulle n'est pas rejetée au seuil de 5%. Cela indique que la série différenciée est stationnaire en niveau. La différenciation a donc réussi à éliminer toute tendance ou non-stationnarité de niveau, rendant ainsi la série stationnaire.
+
+
+```{r}
+# Test de Dickey-Fuller Augmenté
+adf_test_diff <- adf.test(diff_cac40_ts, alternative = "stationary")
+print(adf_test_diff)
+```
+
+La p-value de 0.01, inférieure à 0.05, suggère que l'hypothèse nulle est rejetée au seuil de 5%. Cela confirme que la série différenciée est stationnaire. Le rejet de l'hypothèse de racine unitaire montre que la différenciation a réussi à rendre la série stationnaire et à éliminer la présence de racine unitaire.
+
+
+```{r}
+library(TSA)
+
+par(mfrow = c(1,2))
+
+# Autocorrélation
+acf(cac40_ts)
+
+acf(diff_cac40)
+
+par(mfrow = c(1,1))
+```
+
+
+
+
+
+## d. Statistiques descriptives (moyenne, écart-type, skewness, kurtosis normalité, box-plot (cf. Chapitre 3 p38)
+…). Commenter
+
+```{r}
+library(fBasics)
+
+stats = basicStats(diff_cac40)
+show(stats)
+```
+
+
+La série différenciée du CAC 40 présente un minimum de -744,29, qui correspond à janvier 2008, ce qui reflète une chute importante de l'indice à cette période, probablement en raison de la crise financière mondiale déclenchée par la crise des subprimes, entraînant une baisse significative de l'indice.
+
+Le maximum de 531,15 représente une hausse notable de l'indice, mais cette variation positive reste inférieure à la baisse maximale.
+
+La moyenne de 1,35 indique que, en moyenne, les variations journalières de l'indice sont légèrement positives. Cependant, cette moyenne est faible, suggérant des fluctuations modérées au quotidien.
+
+La médiane est de 38,08, ce qui montre qu'une proportion significative des observations diffère considérablement de la moyenne. En d'autres termes, la série n'est pas symétrique et présente une certaine asymétrie dans les variations de l'indice, avec des valeurs qui peuvent s'écarter de la moyenne de manière plus prononcée.
+
+L'écart-type de 211,13 reflète la volatilité relativement élevée de la série. Les variations journalières du CAC 40 s'écartent de la moyenne de manière substantielle, ce qui indique une instabilité dans les mouvements de l'indice et des fluctuations importantes dans ses valeurs.
+
+La skewness de -0,66 suggère que la distribution de la série est légèrement asymétrique à gauche. Cela signifie qu'il y a une prédisposition pour les baisses de l'indice à être plus marquées que les hausses, créant une queue plus longue du côté négatif de la distribution.
+
+Enfin, la kurtosis de 0,71 est inférieure à 3, ce qui indique que la distribution des variations est moins pointue que celle d'une distribution normale. Il y a donc moins de valeurs extrêmes dans la série, ce qui suggère que les mouvements extrêmes du CAC 40 sont relativement rares par rapport à une distribution normale.
+
+
+```{r}
+# ATTENTION : hypothèses à vérifier avant d'utiliser ce test
+shapiro.test(diff_cac40)
+```
+
+La p-value de 0.0001398, inférieure à 0.01, indique que l'hypothèse nulle est rejetée au seuil de risque de 1%. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série différenciée du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
+
+```{r}
+boxplot(
+  diff_cac40, 
+  main = "Boxplot de la série diff_cac40", 
+  ylab = "Différenciation du CAC40"
+)
+```
+
+Nous observons plusieurs valeurs potentiellement atypiques.
+Nous devons vérifier si ces valeurs sont réellement atypiques.
+
+
+```{r}
+library(EnvStats)
+rosnerTest(diff_cac40, k = 10, alpha = 0.05)
+```
+
+D'après le test de Rosner, ces valeurs ne sont pas considérées comme atypiques.
+
+
+# 2. Estimation des modèles linéaires  
+## a. Estimer et commenter les paramètres des modèles AR(1), AR(p) et ARIMA(p,d,q) et de la méthode LED Holt-Winters, ADAM ETS, ADAM ETS SARIMA et SSARIMA 
+## b. Paramètres : présenter sous forme de tableau les paramètres des modèles 
+précédents.  
+Déterminer et commenter le meilleur modèle d’après les critères AIC et AICc
