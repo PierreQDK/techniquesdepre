@@ -58,8 +58,7 @@ plot.ts(cac40_ts)
 
 
 
-## b. Détection des points atypiques. Présenter ces points sous forme de tableau (date, type de point (AO, TC …), t-stat) et trouver des explications économiques de 
-l’apparition des 3 plus importants 
+## b. Détection des points atypiques. Présenter ces points sous forme de tableau (date, type de point (AO, TC …), t-stat) et trouver des explications économiques de l’apparition des 3 plus importants 
 
 ```{r}
 library(tsoutliers)
@@ -143,8 +142,7 @@ par(mfrow = c(1,1))
 
 
 
-## d. Statistiques descriptives (moyenne, écart-type, skewness, kurtosis normalité, box-plot (cf. Chapitre 3 p38)
-…). Commenter
+## d. Statistiques descriptives (moyenne, écart-type, skewness, kurtosis normalité, box-plot …). (cf. Chapitre 3 p38) Commenter
 
 ```{r}
 library(fBasics)
@@ -199,11 +197,15 @@ D'après le test de Rosner, ces valeurs ne sont pas considérées comme atypique
 
 
 # 2. Estimation des modèles linéaires  
-## a. Estimer et commenter les paramètres des modèles AR(1), AR(p) et ARIMA(p,d,q) et de la méthode LED Holt-Winters, ADAM ETS, ADAM ETS SARIMA et SSARIMA 
+## a. Estimer et commenter les paramètres des modèles AR(1), AR(p) et ARIMA(p,d,q) et de 
+la méthode LED Holt-Winters, ADAM ETS, ADAM ETS ARIMA, SSARIMA et CES 
 
+# POSER AU PROF LA QUESTION : devons-nous utiliser les séries différenciées en fonction du modèle ?
 
 ### AR(1)
 ```{r}
+
+library(forecast)
 mod_ar1 <- Arima(diff_cac40_ts, order = c(1,0,0))
 summary(mod_ar1)
 ```
@@ -231,13 +233,12 @@ summary(mod_arima)
 ### Lissage Exponentiel Double (LED) de Holt-Winters
 
 ```{r}
-library(forecast)
-
-# Création de la série temporelle
-yy <- cac40_ts
+# ---- Modélisation ----
 
 # Modèle LED Holt-Winters : lissage exponentiel double (niveau + tendance)
-m <- HoltWinters(yy, gamma = FALSE)
+m <- HoltWinters(cac40_ts, gamma = FALSE)
+
+# ---- prévision ----
 
 # Prévision sur un horizon h = 50 avec intervalles de confiance à 80% et 95%
 fit <- forecast(m, h = 50)     # ← prévision à 50 périodes
@@ -251,8 +252,6 @@ show(prevf)
 # Informations sur le modèle ajusté
 mod <- fit$model
 show(mod)
-
-
 ```
 
 
@@ -263,15 +262,15 @@ show(mod)
 library(smooth)
 
 mod_adam_ets <- auto.adam(
-  cac40_ts,                      # série d'entrée (ici le CAC 40)
-  model = "ZZZ",                 # sélection automatique du meilleur ETS (niveau, tendance, saisonnalité)
-  lags = c(1, 12),               # lags utilisés pour la structure ETS (court terme et saisonnalité mensuelle)
-  select = TRUE                 # active la sélection du meilleur modèle selon l’AIC
+  cac40_ts,                 # série d'entrée (ici le CAC 40)
+  model = "ZZZ",            # sélection automatique du meilleur ETS (niveau, tendance, saisonnalité)
+  lags = c(1, 12),          # lags utilisés pour la structure ETS (court terme et saisonnalité mensuelle)
+  select = TRUE             # active la sélection du meilleur modèle selon l’AIC
 )
 
 summary(mod_adam_ets)
-
 ```
+
 
 ### ADAM ETS-ARIMA (modèle hybride)
 
@@ -282,7 +281,8 @@ library(smooth)
 mod_ets_arima <- auto.adam(
   cac40_ts,                         # série utilisée
   model = "ZZZ",                    # laisse le modèle ETS optimal être choisi
-  lags = c(1, 12),                  # lags pour l’erreur ARIMA : 1 (court terme), 12 (saisonnier)
+lags = c(1, 1, 12),                 # Retards utilisés dans le modèle : premier 1 pour la tendance,
+                                    # deuxième 1 pour la composante ARIMA, 12 pour la saisonnalité
   orders = list(
     ar = c(3, 3),                   # ordre max des polynômes AR (non-saisonnier, saisonnier)
     i  = c(2),                      # max différenciation (ici, jusqu’à I(2))
@@ -292,8 +292,6 @@ mod_ets_arima <- auto.adam(
 )
 
 summary(mod_ets_arima)
-
-
 ```
 
 
@@ -328,7 +326,7 @@ plot(prevssarima)
 ### CES (Complex Exponential Smoothing)
 
 ```{r}
-mod_ces <- adam(cac40_ts, model = "CES")
+mod_ces <- auto.ces(cac40_ts)
 summary(mod_ces)
 ```
 
@@ -336,3 +334,6 @@ summary(mod_ces)
 
 ## b. Paramètres : présenter sous forme de tableau les paramètres des modèles 
 précédents. Déterminer et commenter le meilleur modèle d’après les critères AIC et AICc
+
+
+
