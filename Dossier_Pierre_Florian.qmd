@@ -134,7 +134,7 @@ par(mfrow = c(1,2))
 # Autocorrélation
 acf(cac40_ts)
 
-acf(diff_cac40)
+acf(diff_cac40_ts)
 
 par(mfrow = c(1,1))
 ```
@@ -149,7 +149,7 @@ par(mfrow = c(1,1))
 ```{r}
 library(fBasics)
 
-stats = basicStats(diff_cac40)
+stats = basicStats(diff_cac40_ts)
 show(stats)
 ```
 
@@ -171,14 +171,14 @@ Enfin, la kurtosis de 0,71 est inférieure à 3, ce qui indique que la distribut
 
 ```{r}
 # ATTENTION : hypothèses à vérifier avant d'utiliser ce test
-shapiro.test(diff_cac40)
+shapiro.test(diff_cac40_ts)
 ```
 
 La p-value de 0.0001398, inférieure à 0.01, indique que l'hypothèse nulle est rejetée au seuil de risque de 1%. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série différenciée du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
 
 ```{r}
 boxplot(
-  diff_cac40, 
+  diff_cac40_ts, 
   main = "Boxplot de la série diff_cac40", 
   ylab = "Différenciation du CAC40"
 )
@@ -190,14 +190,149 @@ Nous devons vérifier si ces valeurs sont réellement atypiques.
 
 ```{r}
 library(EnvStats)
-rosnerTest(diff_cac40, k = 10, alpha = 0.05)
+rosnerTest(diff_cac40_ts, k = 10, alpha = 0.05)
 ```
 
 D'après le test de Rosner, ces valeurs ne sont pas considérées comme atypiques.
 
 
+
+
 # 2. Estimation des modèles linéaires  
 ## a. Estimer et commenter les paramètres des modèles AR(1), AR(p) et ARIMA(p,d,q) et de la méthode LED Holt-Winters, ADAM ETS, ADAM ETS SARIMA et SSARIMA 
+
+
+### AR(1)
+```{r}
+mod_ar1 <- Arima(diff_cac40_ts, order = c(1,0,0))
+summary(mod_ar1)
+```
+
+
+### AR(p)
+
+```{r}
+mod_arp <- ar(diff_cac40_ts, method = "yw")
+mod_arp$order
+mod_arp$ar
+```
+
+
+
+### Autoarima
+
+```{r}
+mod_arima <- auto.arima(cac40_ts)
+summary(mod_arima)
+
+```
+
+
+### Lissage Exponentiel Double (LED) de Holt-Winters
+
+```{r}
+library(forecast)
+
+# Création de la série temporelle
+yy <- cac40_ts
+
+# Modèle LED Holt-Winters : lissage exponentiel double (niveau + tendance)
+m <- HoltWinters(yy, gamma = FALSE)
+
+# Prévision sur un horizon h = 50 avec intervalles de confiance à 80% et 95%
+fit <- forecast(m, h = 50)     # ← prévision à 50 périodes
+plot(fit)
+show(fit)
+
+# Prévisions ponctuelles
+prevf <- fit$mean              # ← point de prévision
+show(prevf)
+
+# Informations sur le modèle ajusté
+mod <- fit$model
+show(mod)
+
+
+```
+
+
+###  ADAM ETS (Error-Trend-Seasonal)
+
+```{r}
+# Modèle ADAM ETS
+library(smooth)
+
+mod_adam_ets <- auto.adam(
+  cac40_ts,                      # série d'entrée (ici le CAC 40)
+  model = "ZZZ",                 # sélection automatique du meilleur ETS (niveau, tendance, saisonnalité)
+  lags = c(1, 12),               # lags utilisés pour la structure ETS (court terme et saisonnalité mensuelle)
+  select = TRUE                 # active la sélection du meilleur modèle selon l’AIC
+)
+
+summary(mod_adam_ets)
+
+```
+
+### ADAM ETS-ARIMA (modèle hybride)
+
+```{r}
+# Modèle ADAM ETS + ARIMA
+library(smooth)
+
+mod_ets_arima <- auto.adam(
+  cac40_ts,                         # série utilisée
+  model = "ZZZ",                    # laisse le modèle ETS optimal être choisi
+  lags = c(1, 12),                  # lags pour l’erreur ARIMA : 1 (court terme), 12 (saisonnier)
+  orders = list(
+    ar = c(3, 3),                   # ordre max des polynômes AR (non-saisonnier, saisonnier)
+    i  = c(2),                      # max différenciation (ici, jusqu’à I(2))
+    ma = c(3, 3)                    # ordre max des polynômes MA
+  ),
+  select = TRUE                    # sélection automatique du meilleur sous-modèle
+)
+
+summary(mod_ets_arima)
+
+
+```
+
+
+### SSARIMA (State Space ARIMA)
+
+```{r}
+# Modèle SSARIMA
+library(smooth)
+
+fitssarima <- auto.ssarima(
+  cac40_ts,                                # série utilisée
+  lags = c(1, 12),                         # spécifie une structure SARIMA mensuelle
+  orders = list(ar = c(3, 3),              # ordre max AR non saisonnier et saisonnier
+                i  = c(2),                 # ordre max de différenciation
+                ma = c(3, 3)),            # ordre max MA non saisonnier et saisonnier
+  select = TRUE                           # sélection automatique du meilleur modèle
+)
+
+summary(fitssarima)
+
+# Graphiques
+par(mfcol = c(2, 2))
+plot(fitssarima)
+
+# Prévision sur 12 mois (avec IC à 90 %)
+prevssarima <- forecast(fitssarima, h = 12, level = 0.90)  # ← prévision du modèle SSARIMA pour h = 12
+plot(prevssarima)
+
+
+```
+
+### CES (Complex Exponential Smoothing)
+
+```{r}
+mod_ces <- adam(cac40_ts, model = "CES")
+summary(mod_ces)
+```
+
+
+
 ## b. Paramètres : présenter sous forme de tableau les paramètres des modèles 
-précédents.  
-Déterminer et commenter le meilleur modèle d’après les critères AIC et AICc
+précédents. Déterminer et commenter le meilleur modèle d’après les critères AIC et AICc
