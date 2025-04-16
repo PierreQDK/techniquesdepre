@@ -269,6 +269,11 @@ mod_adam_ets <- auto.adam(
 )
 
 summary(mod_adam_ets)
+
+# Affichage des états internes du modèle ADAM ETS
+forecast_adam <- forecast(mod_adam_ets, h = 12, level = 0.95)
+plot(forecast_adam)
+
 ```
 
 
@@ -292,6 +297,9 @@ lags = c(1, 1, 12),                 # Retards utilisés dans le modèle : premie
 )
 
 summary(mod_ets_arima)
+
+forecast_adamarima <- forecast(mod_ets_arima, h = 12, level = 0.95)
+plot(forecast_adamarima)
 ```
 
 
@@ -326,14 +334,78 @@ plot(prevssarima)
 ### CES (Complex Exponential Smoothing)
 
 ```{r}
-mod_ces <- auto.ces(cac40_ts)
+# Modèle CES (Complex Exponential Smoothing)
+library(smooth)
+
+# Estimation automatique du meilleur modèle CES
+mod_ces <- auto.ces(
+  cac40_ts,         # série temporelle utilisée
+)
+
+# Résumé des paramètres estimés, AIC, erreurs, etc.
 summary(mod_ces)
+
+# Graphiques de diagnostic (décomposition, résidus, QQ-plot, etc.)
+par(mfrow = c(2, 2))  # disposition des 4 graphiques
+plot(mod_ces)
+
+# Prévision sur 12 périodes avec intervalle à 95 %
+prev_ces <- forecast(mod_ces, h = 12, level = 0.95)
+
+# Graphique des prévisions avec intervalle de confiance
+plot(prev_ces)
+
 ```
 
 
 
-## b. Paramètres : présenter sous forme de tableau les paramètres des modèles 
-précédents. Déterminer et commenter le meilleur modèle d’après les critères AIC et AICc
+
+
+
+
+# 3. Prévision linéaire sur une année 
+
+
+
+## Création données 
+
+```{r}
+# Données simulées
+mois <- c("janv.-18", "févr.-18", "mars-18", "avr.-18", "mai-18", "juin-18")
+
+df <- data.frame(
+  mois = factor(mois, levels = mois),
+  STL = c(3600, 3550, 3400, 3300, 3250, 3225),
+  `ADAM ETS+ARIMA` = c(3550, 3600, 3500, 3550, 3620, 3550),
+  `Holt-Winters` = c(3590, 3540, 3410, 3310, 3260, 3230),
+  ETS = c(3600, 3560, 3405, 3305, 3255, 3230),
+  `ADAM ETS` = c(3605, 3555, 3410, 3310, 3260, 3235),
+  `ADAM ETS+SARIMA` = c(3602, 3552, 3415, 3320, 3270, 3240),
+  SSARIMA = c(3601, 3551, 3402, 3302, 3252, 3228),
+  réalisée = c(3603, 3553, 3400, 3300, 3250, 3225)
+)
+df_long <- pivot_longer(df, -mois, names_to = "Méthode", values_to = "Valeur")
+
+```
+
+## Prévision
+```{r}
+ggplot(df_long, aes(x = mois, y = Valeur, color = Méthode, group = Méthode)) +
+  geom_line(size = 1.1) +
+  labs(
+    title = "Évolution des prévisions pour les différentes méthodes",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "bottom",
+    legend.title = element_blank()
+  )
+
+```
+
 
 
 
