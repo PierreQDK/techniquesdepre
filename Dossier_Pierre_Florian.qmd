@@ -35,12 +35,23 @@ library(tidyverse)
 ```{r}
 # Importation des données
 
-cac40 <- tq_get("^FCHI", from = "2000-01-01", to = "2019-12-31") |> 
-  tq_transmute(select = close, mutate_fun = to.monthly) |> 
-  rename(cloture = close) 
+cac40 <- tq_get(
+  "^FCHI",
+  from = "2000-01-01", to = "2019-12-31", periodicity = "monthly"
+) |>
+  mutate(
+    date = date %m+% months(1)
+  ) |>
+  select(
+    date, close
+  ) |>
+  rename(
+    cloture = close
+  )
 
-head(cac40, n=20)
+head(cac40, n = 20)
 ```
+
 
 La série de données utilisée dans cette analyse provient du site Yahoo Finance (https://finance.yahoo.com/), une plateforme de référence pour les données financières et boursières.
 
@@ -51,7 +62,7 @@ La série temporelle mensuelle commence en janvier 2000 et se termine en décemb
 
 ```{r}
 # Classe time series
-cac40_ts <- ts(data = cac40$cloture, start=c(2000, 01), frequency=12)
+cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
 
 plot.ts(cac40_ts)
 ```
@@ -81,65 +92,133 @@ plot(adj)
 
 ## c. Vérifier la stationnarité de la série I(0) ou I(1)
 
+### 1. Stationnarité avec ou sans tendance
+
+```{r}
+# Créer la variable temps
+temps <- 1:length(cac40_ts)
+
+# --- 1. Régression linéaire pour détecter une tendance linéaire ---
+modele_tendance <- lm(cac40_ts ~ temps)
+
+# Résumé du modèle : vérifier la significativité du coefficient de 'temps'
+summary(modele_tendance)
+```
+
+Le modèle de régression linéaire ajuste la série cac40_ts en fonction du temps pour détecter une éventuelle tendance linéaire. Le coefficient associé à la variable temps est estimé à 1.2691, ce qui suggère une légère croissance au fil du temps. Toutefois, la p-value associée à ce coefficient est de 0.142, soit bien supérieure au seuil classique de 5 %. Cela signifie que, d’un point de vue statistique, aucune tendance linéaire significative ne peut être affirmée dans la série temporelle du CAC 40. Le faible R² (≈ 0.9 %) confirme que le temps n’explique qu’une infime part de la variation de la série. Autrement dit, la série pourrait évoluer dans le temps, mais pas de manière linéaire.
+
+
+```{r}
+# --- 2. Test de Mann-Kendall pour une tendance monotone ---
+library(Kendall)
+
+# Appliquer le test
+test_mk <- Kendall(temps, cac40_ts)
+
+# Résultat
+print(test_mk)
+```
+
+En revanche, le test non paramétrique de Mann-Kendall donne des résultats très différents. Le coefficient de Kendall, tau = 0.157, est positif, ce qui indique une tendance monotone croissante. La p-value associée est de 0.00028, donc très inférieure à 0.05, ce qui permet de rejeter l’hypothèse nulle d’absence de tendance monotone. Ainsi, la série CAC 40 présente bien une tendance monotone significative, même si cette tendance n’est pas nécessairement linéaire. Ce test étant robuste aux formes non linéaires et aux distributions non normales, son résultat est particulièrement fiable dans un contexte de série financière.
+
+
+### 2. Test
+
+#### 1. ADF test
+
+```{r}
+library(urca)
+
+# Appliquer le test ADF avec tendance
+adf_test <- ur.df(cac40_ts, type = "trend", selectlags = "AIC")
+
+# Résultats du test ADF
+summary(adf_test)
+```
+
+Le test ADF a été réalisé afin de vérifier la présence d'une racine unitaire dans la série cac40_ts, en incluant une tendance dans la régression. La statistique de test obtenue est de -2.1678, ce qui est supérieur à la valeur critique à 5% (-3.43). Cela implique que l’on ne peut pas rejeter l’hypothèse nulle de non-stationnarité. Ce résultat suggère que la série présente probablement une racine unitaire, c’est-à-dire qu’elle est non stationnaire, même en tenant compte d'une tendance déterministe. La faible valeur du R² ajusté (≈ 2,3 %) confirme également une faible capacité explicative du modèle.
+
+
+#### 2. KPSS test
+
 ```{r}
 library(tseries)
 
-# Test KPSS
-kpss_test <- kpss.test(cac40_ts, null = "Level")
+# Appliquer le test KPSS avec tendance
+kpss_test <- kpss.test(cac40_ts, null = "Trend")
+
+# Résultats du test KPSS
 print(kpss_test)
 ```
 
-La p-value de 0.0549, légèrement supérieure à 0.05, suggère que l'hypothèse nulle n'est pas rejetée au seuil de 5%. Cela signifie que la série pourrait être stationnaire en niveau, mais avec un léger doute, étant donné que la p-value est proche de la limite. Bien que l'on ne puisse pas rejeter l'hypothèse de stationnarité, il subsiste une incertitude quant à la stationnarité de la série.
+Le test de stationnarité de KPSS a été appliqué pour tester l’hypothèse nulle selon laquelle la série cac40_ts est stationnaire autour d’une tendance. Le résultat donne une statistique KPSS de 0.40859 avec une p-value inférieure à 0.01, ce qui signifie que l’on rejette l’hypothèse nulle au seuil de 5 %. Ce résultat confirme que la série n’est pas stationnaire autour d’une tendance, ce qui est cohérent avec les observations graphiques et les résultats du test ADF. La série présente donc une dynamique de tendance non stationnaire.
 
 
-```{r}
-# Test de Dickey-Fuller Augmenté
-adf_test <- adf.test(cac40_ts, alternative = "stationary")
-print(adf_test)
-```
+#### 3. Conclusion
 
-La p-value de 0.1814, supérieure à 0.05, suggère que l'hypothèse nulle n'est pas rejetée au seuil de 5%. Cela indique que la série est probablement non stationnaire et pourrait contenir une racine unitaire. En d'autres termes, la série suit probablement un processus non stationnaire d'ordre 1 (I(1)) et nécessite une différenciation pour devenir stationnaire.
+L’analyse conjointe des tests ADF et KPSS conduit à la conclusion que la série cac40_ts n’est pas stationnaire, même en présence d’une tendance. Le test ADF ne permet pas de rejeter l’hypothèse de racine unitaire, indiquant une non-stationnarité. Le test KPSS, quant à lui, rejette l’hypothèse nulle de stationnarité autour d’une tendance, confirmant que la série suit une évolution non stationnaire. Ces résultats suggèrent que la série nécessite probablement une transformation (comme la différenciation) pour atteindre la stationnarité, indispensable à la plupart des modèles économétriques en séries temporelles.
 
+
+### 3. Différenciation de la série
 
 ```{r}
-# Différenciation de la série
+# 1. Différencier la série
 diff_cac40_ts <- diff(cac40_ts)
-ts.plot(diff_cac40_ts)
 ```
+
+
+### 4. Tester la stationnarité après différenciation
+
+#### 1. ADF test
 
 ```{r}
-# Test KPSS
-kpss_test_diff <- kpss.test(diff_cac40_ts, null = "Level")
-print(kpss_test_diff)
+## Test ADF (sans tendance ni drift, car la tendance a été retirée)
+library(urca)
+adf_diff_test <- ur.df(diff_cac40_ts, type = "none", selectlags = "AIC")
+summary(adf_diff_test)
 ```
 
-La p-value de 0.1, supérieure à 0.05, suggère que l'hypothèse nulle n'est pas rejetée au seuil de 5%. Cela indique que la série différenciée est stationnaire en niveau. La différenciation a donc réussi à éliminer toute tendance ou non-stationnarité de niveau, rendant ainsi la série stationnaire.
+Le test ADF appliqué à la série différenciée diff_cac40_ts présente une statistique de test -11.023, bien en dessous des valeurs critiques à 5% (-1.95). La p-value associée est extrêmement faible (inférieure à 0.01), ce qui nous permet de rejeter l’hypothèse nulle de racine unitaire. Ainsi, après différenciation, la série devient stationnaire. Ce résultat confirme que la différenciation a éliminé la racine unitaire, rendant la série stationnaire.
 
+
+#### 2. KPSS test
 
 ```{r}
-# Test de Dickey-Fuller Augmenté
-adf_test_diff <- adf.test(diff_cac40_ts, alternative = "stationary")
-print(adf_test_diff)
+## Test KPSS (stationnarité autour d'une constante après différenciation)
+library(tseries)
+kpss_diff_test <- kpss.test(diff_cac40_ts, null = "Level")
+print(kpss_diff_test)
 ```
 
-La p-value de 0.01, inférieure à 0.05, suggère que l'hypothèse nulle est rejetée au seuil de 5%. Cela confirme que la série différenciée est stationnaire. Le rejet de l'hypothèse de racine unitaire montre que la différenciation a réussi à rendre la série stationnaire et à éliminer la présence de racine unitaire.
+Le test KPSS appliqué à la série différenciée montre une statistique KPSS de 0.22442 avec une p-value de 0.1. Comme la p-value est supérieure à 0.05, nous ne rejetons pas l’hypothèse nulle de stationnarité autour d’une constante. Cela suggère que, après différenciation, la série est stationnaire au niveau. Cette stationnarité au niveau implique que la série ne présente plus de tendance ou de dérive non stationnaire, renforçant l’idée que la transformation a été efficace.
 
+
+#### 3. Conclusion
+
+Après avoir différencié la série cac40_ts, les résultats des tests montrent une stationnarité évidente. Le test ADF rejette fermement l’hypothèse de racine unitaire, confirmant que la série est stationnaire après différenciation. Le test KPSS soutient également cette conclusion, indiquant que la série est stationnaire autour d’une constante. En résumé, la différenciation a réussi à rendre la série stationnaire, ce qui permet de l’utiliser pour des modèles économétriques appropriés tels que les modèles ARIMA ou autres.
+
+
+### Corrélogramme
 
 ```{r}
-library(TSA)
+library(gridExtra)
 
-par(mfrow = c(1,2))
+# Corrélogramme
 
-# Autocorrélation
-acf(cac40_ts)
+acf_graph1 <- cac40_ts |> 
+  ggAcf() +
+  ggtitle("Corrélogramme sur la série en niveau") +
+  theme_bw()
 
-acf(diff_cac40_ts)
+acf_graph2 <- diff_cac40_ts |>  
+  ggAcf() +
+  ggtitle("Corrélogramme sur la série en différence première") +
+  theme_bw()
 
-par(mfrow = c(1,1))
+grid.arrange(acf_graph1, acf_graph2, ncol = 2)
 ```
 
-
-
+Avant la différenciation, la série non stationnaire (comme une série intégrée I(1)) montre une autocorrélation significative sur les premiers lags, ce qui indique la présence d'une racine unitaire et l'absence de stationnarité. En revanche, après la différenciation, l'ACF se stabilise autour de zéro, avec des autocorrélations non significatives, ce qui suggère que la série est devenue stationnaire (I(0)). Ainsi, l'ACF de la série différenciée ne montre plus d'autocorrélations significatives, confirmant que la différenciation a éliminé la non-stationnarité, rendant la série adaptée à des analyses économétriques.
 
 
 ## d. Statistiques descriptives (moyenne, écart-type, skewness, kurtosis normalité, box-plot …). (cf. Chapitre 3 p38) Commenter
@@ -147,7 +226,7 @@ par(mfrow = c(1,1))
 ```{r}
 library(fBasics)
 
-stats = basicStats(diff_cac40_ts)
+stats <- basicStats(diff_cac40_ts)
 show(stats)
 ```
 
@@ -176,8 +255,8 @@ La p-value de 0.0001398, inférieure à 0.01, indique que l'hypothèse nulle est
 
 ```{r}
 boxplot(
-  diff_cac40_ts, 
-  main = "Boxplot de la série diff_cac40", 
+  diff_cac40_ts,
+  main = "Boxplot de la série diff_cac40",
   ylab = "Différenciation du CAC40"
 )
 ```
@@ -204,9 +283,8 @@ la méthode LED Holt-Winters, ADAM ETS, ADAM ETS ARIMA, SSARIMA et CES
 
 ### AR(1)
 ```{r}
-
 library(forecast)
-mod_ar1 <- Arima(diff_cac40_ts, order = c(1,0,0))
+mod_ar1 <- Arima(diff_cac40_ts, order = c(1, 0, 0))
 summary(mod_ar1)
 ```
 
@@ -226,7 +304,6 @@ mod_arp$ar
 ```{r}
 mod_arima <- auto.arima(cac40_ts)
 summary(mod_arima)
-
 ```
 
 
@@ -241,12 +318,12 @@ m <- HoltWinters(cac40_ts, gamma = FALSE)
 # ---- prévision ----
 
 # Prévision sur un horizon h = 50 avec intervalles de confiance à 80% et 95%
-fit <- forecast(m, h = 50)     # ← prévision à 50 périodes
+fit <- forecast(m, h = 50) # ← prévision à 50 périodes
 plot(fit)
 show(fit)
 
 # Prévisions ponctuelles
-prevf <- fit$mean              # ← point de prévision
+prevf <- fit$mean # ← point de prévision
 show(prevf)
 
 # Informations sur le modèle ajusté
@@ -262,10 +339,10 @@ show(mod)
 library(smooth)
 
 mod_adam_ets <- auto.adam(
-  cac40_ts,                 # série d'entrée (ici le CAC 40)
-  model = "ZZZ",            # sélection automatique du meilleur ETS (niveau, tendance, saisonnalité)
-  lags = c(1, 12),          # lags utilisés pour la structure ETS (court terme et saisonnalité mensuelle)
-  select = TRUE             # active la sélection du meilleur modèle selon l’AIC
+  cac40_ts, # série d'entrée (ici le CAC 40)
+  model = "ZZZ", # sélection automatique du meilleur ETS (niveau, tendance, saisonnalité)
+  lags = c(1, 12), # lags utilisés pour la structure ETS (court terme et saisonnalité mensuelle)
+  select = TRUE # active la sélection du meilleur modèle selon l’AIC
 )
 
 summary(mod_adam_ets)
@@ -273,7 +350,6 @@ summary(mod_adam_ets)
 # Affichage des états internes du modèle ADAM ETS
 forecast_adam <- forecast(mod_adam_ets, h = 12, level = 0.95)
 plot(forecast_adam)
-
 ```
 
 
@@ -284,16 +360,16 @@ plot(forecast_adam)
 library(smooth)
 
 mod_ets_arima <- auto.adam(
-  cac40_ts,                         # série utilisée
-  model = "ZZZ",                    # laisse le modèle ETS optimal être choisi
-lags = c(1, 1, 12),                 # Retards utilisés dans le modèle : premier 1 pour la tendance,
-                                    # deuxième 1 pour la composante ARIMA, 12 pour la saisonnalité
+  cac40_ts, # série utilisée
+  model = "ZZZ", # laisse le modèle ETS optimal être choisi
+  lags = c(1, 1, 12), # Retards utilisés dans le modèle : premier 1 pour la tendance,
+  # deuxième 1 pour la composante ARIMA, 12 pour la saisonnalité
   orders = list(
-    ar = c(3, 3),                   # ordre max des polynômes AR (non-saisonnier, saisonnier)
-    i  = c(2),                      # max différenciation (ici, jusqu’à I(2))
-    ma = c(3, 3)                    # ordre max des polynômes MA
+    ar = c(3, 3), # ordre max des polynômes AR (non-saisonnier, saisonnier)
+    i  = c(2), # max différenciation (ici, jusqu’à I(2))
+    ma = c(3, 3) # ordre max des polynômes MA
   ),
-  select = TRUE                    # sélection automatique du meilleur sous-modèle
+  select = TRUE # sélection automatique du meilleur sous-modèle
 )
 
 summary(mod_ets_arima)
@@ -310,12 +386,14 @@ plot(forecast_adamarima)
 library(smooth)
 
 fitssarima <- auto.ssarima(
-  cac40_ts,                                # série utilisée
-  lags = c(1, 12),                         # spécifie une structure SARIMA mensuelle
-  orders = list(ar = c(3, 3),              # ordre max AR non saisonnier et saisonnier
-                i  = c(2),                 # ordre max de différenciation
-                ma = c(3, 3)),            # ordre max MA non saisonnier et saisonnier
-  select = TRUE                           # sélection automatique du meilleur modèle
+  cac40_ts, # série utilisée
+  lags = c(1, 12), # spécifie une structure SARIMA mensuelle
+  orders = list(
+    ar = c(3, 3), # ordre max AR non saisonnier et saisonnier
+    i = c(2), # ordre max de différenciation
+    ma = c(3, 3)
+  ), # ordre max MA non saisonnier et saisonnier
+  select = TRUE # sélection automatique du meilleur modèle
 )
 
 summary(fitssarima)
@@ -325,10 +403,8 @@ par(mfcol = c(2, 2))
 plot(fitssarima)
 
 # Prévision sur 12 mois (avec IC à 90 %)
-prevssarima <- forecast(fitssarima, h = 12, level = 0.90)  # ← prévision du modèle SSARIMA pour h = 12
+prevssarima <- forecast(fitssarima, h = 12, level = 0.90) # ← prévision du modèle SSARIMA pour h = 12
 plot(prevssarima)
-
-
 ```
 
 ### CES (Complex Exponential Smoothing)
@@ -339,14 +415,14 @@ library(smooth)
 
 # Estimation automatique du meilleur modèle CES
 mod_ces <- auto.ces(
-  cac40_ts,         # série temporelle utilisée
+  cac40_ts, # série temporelle utilisée
 )
 
 # Résumé des paramètres estimés, AIC, erreurs, etc.
 summary(mod_ces)
 
 # Graphiques de diagnostic (décomposition, résidus, QQ-plot, etc.)
-par(mfrow = c(2, 2))  # disposition des 4 graphiques
+par(mfrow = c(2, 2)) # disposition des 4 graphiques
 plot(mod_ces)
 
 # Prévision sur 12 périodes avec intervalle à 95 %
@@ -354,7 +430,6 @@ prev_ces <- forecast(mod_ces, h = 12, level = 0.95)
 
 # Graphique des prévisions avec intervalle de confiance
 plot(prev_ces)
-
 ```
 
 
@@ -385,7 +460,6 @@ df <- data.frame(
   réalisée = c(3603, 3553, 3400, 3300, 3250, 3225)
 )
 df_long <- pivot_longer(df, -mois, names_to = "Méthode", values_to = "Valeur")
-
 ```
 
 ## Prévision
@@ -403,7 +477,6 @@ ggplot(df_long, aes(x = mois, y = Valeur, color = Méthode, group = Méthode)) +
     legend.position = "bottom",
     legend.title = element_blank()
   )
-
 ```
 
 
