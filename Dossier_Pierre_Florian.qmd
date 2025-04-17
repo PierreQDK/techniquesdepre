@@ -27,6 +27,7 @@ Choix 2 : Série CVS  ou non saisonnière mensuelle
 library(tidyquant)
 library(tidyverse)
 library(forecast)
+library(seastests)
 ```
 
 # 1. Analyse préliminaire
@@ -482,137 +483,76 @@ plot(prev_ces)
 
 # 3. Prévision linéaire sur une année 
 
-### Tentative 2020
+
+
+
+# 5. Qualité de prévision 
+
+
+## 5.1 MSE et R2oo
 
 ```{r}
-library(tidyverse)
-library(lubridate)
-library(ggplot2)
+# Créer la série d'apprentissage (jusqu’à fin 2017)
+cac40_train <- window(cac40_ts, end = c(2017, 12))
+cac40_test  <- window(cac40_ts, start = c(2018, 1), end = c(2018, 12))  # série "réalisée" en 2018
 
-# === 1. Créer une séquence de dates pour la prévision sur 12 mois ===
-h <- 12
-last_date <- as.Date("2019-12-01")  # Dernier point de ta série
-dates_future <- seq(from = last_date %m+% months(1), by = "month", length.out = h)
-
-# === 2. Créer le data frame combiné avec tes objets de prévision déjà créés ===
-df_all <- tibble(
-  Date = rep(dates_future, times = 6),
-  Prévision = c(as.numeric(prev_adam$mean),
-                as.numeric(prev_adamarima$mean),
-                as.numeric(prev_arima$mean),
-                as.numeric(prev_hw$mean),
-                as.numeric(prevssarima$mean),
-                as.numeric(prev_ces$mean)),
-  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt.Winters", "SSARIMA", "CES"), each = h)
-)
-
-# === 3. Ajouter la série réalisée si tu veux la comparer ===
-serie_reelle <- window(cac40_ts, start = c(2019, 1))
-dates_reelles <- seq(from = as.Date("2019-01-01"), by = "month", length.out = length(serie_reelle))
-
-df_real <- tibble(
-  Date = dates_reelles,
-  Prévision = as.numeric(serie_reelle),
-  Modèle = "réalisée"
-)
-
-# === 4. Combiner prévisions et réalisée ===
-df_plot <- bind_rows(df_all, df_real)
-
-# === 5. Tracer le graphique final ===
-ggplot(df_plot, aes(x = Date, y = Prévision, color = Modèle)) +
-  geom_line(size = 1) +
-  labs(
-    title = "Évolution des prévisions pour les différentes méthodes",
-    x = "Date",
-    y = "Indice CAC 40"
-  ) +
-  theme_minimal(base_size = 13) +
-  scale_color_manual(values = c(
-    "ADAM.ETS" = "#E76F51",
-    "ADAM.ETS.ARIMA" = "#9D4EDD",
-    "ARIMA" = "#277DA1",
-    "Holt.Winters" = "#2A9D8F",
-    "SSARIMA" = "#F72585",
-    "CES" = "#FFB703",
-    "réalisée" = "black"
-  )) +
-  theme(legend.title = element_blank())
-
-```
-
-
-
-
-
-
-### Tentative cac 40 en 2017
-```{r}
-library(smooth)
-library(forecast)
-library(tidyverse)
-library(lubridate)
-library(ggplot2)
-
-# === 1. Créer la série tronquée jusqu'à fin 2017 ===
-cac40_train <- window(cac40_ts, end = c(2017, 12))  # Données jusqu’à déc 2017
-cac40_test <- window(cac40_ts, start = c(2018, 1), end = c(2018, 12))  # Réalisé en 2018
-
-# === 2. Modèles estimés sur la période d'apprentissage ===
-fit_adam_ets <- auto.adam(cac40_train, model = "ZZZ", lags = c(1,12), select = TRUE)
-fit_adamarima <- auto.adam(cac40_train, model = "ZZZ", lags = c(1,1,12),
-                           orders = list(ar=c(3,3), i=c(2), ma=c(3,3)), select = TRUE)
+# Re-estimer les modèles
+fit_adam <- auto.adam(cac40_train, model = "ZZZ", lags = c(1, 12), select = TRUE)
+fit_adamarima <- auto.adam(cac40_train, model = "ZZZ", lags = c(1, 1, 12),
+                           orders = list(ar = c(3, 3), i = c(2), ma = c(3, 3)), select = TRUE)
 fit_arima <- auto.arima(cac40_train)
 fit_hw <- HoltWinters(cac40_train, gamma = FALSE)
-fit_ssarima <- auto.ssarima(cac40_train, lags = c(1,12),
-                            orders = list(ar=c(3,3), i=c(2), ma=c(3,3)), select = TRUE)
+fit_ssarima <- auto.ssarima(cac40_train, lags = c(1, 12),
+                            orders = list(ar = c(3, 3), i = c(2), ma = c(3, 3)), select = TRUE)
 fit_ces <- auto.ces(cac40_train)
 
-# === 3. Prévisions sur 2018 ===
+# Prévisions sur 12 mois (année 2018)
 h <- 12
-prev_adam <- forecast(fit_adam_ets, h = h)
-prev_adamarima <- forecast(fit_adamarima, h = h)
-prev_arima <- forecast(fit_arima, h = h)
-prev_hw <- forecast(fit_hw, h = h)
-prev_ssarima <- forecast(fit_ssarima, h = h)
-prev_ces <- forecast(fit_ces, h = h)
-
-# === 4. Créer l'axe temporel correspondant à l’année 2018 ===
-dates_2018 <- seq(from = as.Date("2018-01-01"), by = "month", length.out = h)
-
-# === 5. Assembler les données dans un data frame tidy ===
-df_forecast <- tibble(
-  Date = rep(dates_2018, times = 7),
-  Valeur = c(as.numeric(prev_adam$mean),
-             as.numeric(prev_adamarima$mean),
-             as.numeric(prev_arima$mean),
-             as.numeric(prev_hw$mean),
-             as.numeric(prev_ssarima$mean),
-             as.numeric(prev_ces$mean),
-             as.numeric(cac40_test)),
-  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt.Winters", "SSARIMA", "CES", "réalisée"), each = h)
-)
-
-# === 6. Tracer le graphique final de comparaison ===
-ggplot(df_forecast, aes(x = Date, y = Valeur, color = Modèle)) +
-  geom_line(size = 1) +
-  labs(
-    title = "Prévisions vs Réalisé pour l’année 2018 — Modèles de prévision du CAC 40",
-    x = "Date",
-    y = "Indice CAC 40"
-  ) +
-  theme_minimal(base_size = 13) +
-  scale_color_manual(values = c(
-    "ADAM.ETS" = "#E76F51",
-    "ADAM.ETS.ARIMA" = "#9D4EDD",
-    "ARIMA" = "#277DA1",
-    "Holt.Winters" = "#2A9D8F",
-    "SSARIMA" = "#F72585",
-    "CES" = "#FFB703",
-    "réalisée" = "black"
-  )) +
-  theme(legend.title = element_blank())
+prev_adam       <- forecast(fit_adam, h = h)
+prev_adamarima  <- forecast(fit_adamarima, h = h)
+prev_arima      <- forecast(fit_arima, h = h)
+prev_hw         <- forecast(fit_hw, h = h)
+prev_ssarima    <- forecast(fit_ssarima, h = h)
+prev_ces        <- forecast(fit_ces, h = h)
 
 ```
+
+
+
+```{r}
+# MSE
+mse_adam      <- mean((cac40_test - prev_adam$mean)^2)
+mse_adamarima <- mean((cac40_test - prev_adamarima$mean)^2)
+mse_arima     <- mean((cac40_test - prev_arima$mean)^2)
+mse_hw        <- mean((cac40_test - prev_hw$mean)^2)
+mse_ssarima   <- mean((cac40_test - prev_ssarima$mean)^2)
+mse_ces       <- mean((cac40_test - prev_ces$mean)^2)
+
+# R² OOS
+r2_adam       <- 1 - (mse_adam / mse_arima)
+r2_adamarima  <- 1 - (mse_adamarima / mse_arima)
+r2_hw         <- 1 - (mse_hw / mse_arima)
+r2_ssarima    <- 1 - (mse_ssarima / mse_arima)
+r2_ces        <- 1 - (mse_ces / mse_arima)
+
+```
+
+
+```{r}
+tibble(
+  Modèle       = c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES"),
+  MSE          = c(mse_adam, mse_adamarima, mse_arima, mse_hw, mse_ssarima, mse_ces),
+  R2_OOS       = c(r2_adam, r2_adamarima, NA, r2_hw, r2_ssarima, r2_ces)
+)
+```
+
+
+
+
+
+
+
+
+
 
 
