@@ -76,6 +76,7 @@ plot.ts(cac40_ts)
 
 ```{r}
 # Seasonal dummies
+library(TSA)
 sd <- seasdum(cac40_ts)
 show(sd)
 ```
@@ -326,7 +327,7 @@ summary(mod_ar1)
 ### AR(p)
 
 ```{r}
-mod_arp <- ar(diff_cac40_ts, method = "yw")
+mod_arp <- ar(diff_cac40_ts, aic=TRUE, order.max=12)
 mod_arp$order
 mod_arp$ar
 ```
@@ -369,21 +370,26 @@ show(mod)
 ###  ADAM ETS (Error-Trend-Seasonal)
 
 ```{r}
-# Modèle ADAM ETS
+# Chargement de la librairie
 library(smooth)
 
-mod_adam_ets <- auto.adam(
-  cac40_ts, # série d'entrée (ici le CAC 40)
-  model = "ZZZ", # sélection automatique du meilleur ETS (niveau, tendance, saisonnalité)
-  lags = c(1, 12), # lags utilisés pour la structure ETS (court terme et saisonnalité mensuelle)
-  select = TRUE # active la sélection du meilleur modèle selon l’AIC
+# Estimation du modèle ADAM ETS (ZZZ = sélection automatique)
+fit_adam_ets <- auto.adam(
+  cac40_ts,              # série mensuelle CAC 40
+  model = "ZZZ",         # sélection automatique de la structure ETS
+  lags = c(1, 12),       # court terme et saisonnalité mensuelle
+  select = TRUE          # sélection selon l'AIC
 )
 
-summary(mod_adam_ets)
+# Prévision à 12 mois avec intervalle de confiance à 90 %
+prev_adam_ets <- forecast(fit_adam_ets, h = 12, level = 0.90)
 
-# Affichage des états internes du modèle ADAM ETS
-forecast_adam <- forecast(mod_adam_ets, h = 12, level = 0.95)
-plot(forecast_adam)
+# Affichage des prévisions
+plot(prev_adam_ets)
+
+# Aperçu des valeurs prédites
+prev_adam_ets
+
 ```
 
 
@@ -393,23 +399,25 @@ plot(forecast_adam)
 # Modèle ADAM ETS + ARIMA
 library(smooth)
 
-mod_ets_arima <- auto.adam(
-  cac40_ts, # série utilisée
-  model = "ZZZ", # laisse le modèle ETS optimal être choisi
-  lags = c(1, 1, 12), # Retards utilisés dans le modèle : premier 1 pour la tendance,
-  # deuxième 1 pour la composante ARIMA, 12 pour la saisonnalité
+fit_adam_ets_arima <- auto.adam(
+  cac40_ts,                          # série CAC 40 en niveau
+  model = "ZZZ",                     # sélection automatique ETS
+  lags = c(1, 1, 12),                # lags pour tendance, ARIMA, saisonnalité
   orders = list(
-    ar = c(3, 3), # ordre max des polynômes AR (non-saisonnier, saisonnier)
-    i  = c(2), # max différenciation (ici, jusqu’à I(2))
-    ma = c(3, 3) # ordre max des polynômes MA
+    ar = c(3, 3),                    # ordres AR non saisonnier / saisonnier
+    i  = c(2),                       # ordre de différenciation
+    ma = c(3, 3)                     # ordres MA non saisonnier / saisonnier
   ),
-  select = TRUE # sélection automatique du meilleur sous-modèle
+  select = TRUE                     # sélection automatique du meilleur sous-modèle
 )
 
-summary(mod_ets_arima)
+# Prévision sur 12 mois avec IC à 90 %
+prev_adam_ets_arima <- forecast(fit_adam_ets_arima, h = 12, level = 0.90)
 
-forecast_adamarima <- forecast(mod_ets_arima, h = 12, level = 0.95)
-plot(forecast_adamarima)
+# Affichage des prévisions
+prev_adam_ets_arima
+plot(prev_adam_ets_arima)
+
 ```
 
 
@@ -474,45 +482,137 @@ plot(prev_ces)
 
 # 3. Prévision linéaire sur une année 
 
-
-
-## Création données 
+### Tentative 2020
 
 ```{r}
-# Données simulées
-mois <- c("janv.-18", "févr.-18", "mars-18", "avr.-18", "mai-18", "juin-18")
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
 
-df <- data.frame(
-  mois = factor(mois, levels = mois),
-  STL = c(3600, 3550, 3400, 3300, 3250, 3225),
-  `ADAM ETS+ARIMA` = c(3550, 3600, 3500, 3550, 3620, 3550),
-  `Holt-Winters` = c(3590, 3540, 3410, 3310, 3260, 3230),
-  ETS = c(3600, 3560, 3405, 3305, 3255, 3230),
-  `ADAM ETS` = c(3605, 3555, 3410, 3310, 3260, 3235),
-  `ADAM ETS+SARIMA` = c(3602, 3552, 3415, 3320, 3270, 3240),
-  SSARIMA = c(3601, 3551, 3402, 3302, 3252, 3228),
-  réalisée = c(3603, 3553, 3400, 3300, 3250, 3225)
+# === 1. Créer une séquence de dates pour la prévision sur 12 mois ===
+h <- 12
+last_date <- as.Date("2019-12-01")  # Dernier point de ta série
+dates_future <- seq(from = last_date %m+% months(1), by = "month", length.out = h)
+
+# === 2. Créer le data frame combiné avec tes objets de prévision déjà créés ===
+df_all <- tibble(
+  Date = rep(dates_future, times = 6),
+  Prévision = c(as.numeric(prev_adam$mean),
+                as.numeric(prev_adamarima$mean),
+                as.numeric(prev_arima$mean),
+                as.numeric(prev_hw$mean),
+                as.numeric(prevssarima$mean),
+                as.numeric(prev_ces$mean)),
+  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt.Winters", "SSARIMA", "CES"), each = h)
 )
-df_long <- pivot_longer(df, -mois, names_to = "Méthode", values_to = "Valeur")
-```
 
-## Prévision
-```{r}
-ggplot(df_long, aes(x = mois, y = Valeur, color = Méthode, group = Méthode)) +
-  geom_line(size = 1.1) +
+# === 3. Ajouter la série réalisée si tu veux la comparer ===
+serie_reelle <- window(cac40_ts, start = c(2019, 1))
+dates_reelles <- seq(from = as.Date("2019-01-01"), by = "month", length.out = length(serie_reelle))
+
+df_real <- tibble(
+  Date = dates_reelles,
+  Prévision = as.numeric(serie_reelle),
+  Modèle = "réalisée"
+)
+
+# === 4. Combiner prévisions et réalisée ===
+df_plot <- bind_rows(df_all, df_real)
+
+# === 5. Tracer le graphique final ===
+ggplot(df_plot, aes(x = Date, y = Prévision, color = Modèle)) +
+  geom_line(size = 1) +
   labs(
     title = "Évolution des prévisions pour les différentes méthodes",
-    x = NULL,
-    y = NULL
+    x = "Date",
+    y = "Indice CAC 40"
   ) +
   theme_minimal(base_size = 13) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    legend.position = "bottom",
-    legend.title = element_blank()
-  )
+  scale_color_manual(values = c(
+    "ADAM.ETS" = "#E76F51",
+    "ADAM.ETS.ARIMA" = "#9D4EDD",
+    "ARIMA" = "#277DA1",
+    "Holt.Winters" = "#2A9D8F",
+    "SSARIMA" = "#F72585",
+    "CES" = "#FFB703",
+    "réalisée" = "black"
+  )) +
+  theme(legend.title = element_blank())
+
 ```
 
 
+
+
+
+
+### Tentative cac 40 en 2017
+```{r}
+library(smooth)
+library(forecast)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+
+# === 1. Créer la série tronquée jusqu'à fin 2017 ===
+cac40_train <- window(cac40_ts, end = c(2017, 12))  # Données jusqu’à déc 2017
+cac40_test <- window(cac40_ts, start = c(2018, 1), end = c(2018, 12))  # Réalisé en 2018
+
+# === 2. Modèles estimés sur la période d'apprentissage ===
+fit_adam_ets <- auto.adam(cac40_train, model = "ZZZ", lags = c(1,12), select = TRUE)
+fit_adamarima <- auto.adam(cac40_train, model = "ZZZ", lags = c(1,1,12),
+                           orders = list(ar=c(3,3), i=c(2), ma=c(3,3)), select = TRUE)
+fit_arima <- auto.arima(cac40_train)
+fit_hw <- HoltWinters(cac40_train, gamma = FALSE)
+fit_ssarima <- auto.ssarima(cac40_train, lags = c(1,12),
+                            orders = list(ar=c(3,3), i=c(2), ma=c(3,3)), select = TRUE)
+fit_ces <- auto.ces(cac40_train)
+
+# === 3. Prévisions sur 2018 ===
+h <- 12
+prev_adam <- forecast(fit_adam_ets, h = h)
+prev_adamarima <- forecast(fit_adamarima, h = h)
+prev_arima <- forecast(fit_arima, h = h)
+prev_hw <- forecast(fit_hw, h = h)
+prev_ssarima <- forecast(fit_ssarima, h = h)
+prev_ces <- forecast(fit_ces, h = h)
+
+# === 4. Créer l'axe temporel correspondant à l’année 2018 ===
+dates_2018 <- seq(from = as.Date("2018-01-01"), by = "month", length.out = h)
+
+# === 5. Assembler les données dans un data frame tidy ===
+df_forecast <- tibble(
+  Date = rep(dates_2018, times = 7),
+  Valeur = c(as.numeric(prev_adam$mean),
+             as.numeric(prev_adamarima$mean),
+             as.numeric(prev_arima$mean),
+             as.numeric(prev_hw$mean),
+             as.numeric(prev_ssarima$mean),
+             as.numeric(prev_ces$mean),
+             as.numeric(cac40_test)),
+  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt.Winters", "SSARIMA", "CES", "réalisée"), each = h)
+)
+
+# === 6. Tracer le graphique final de comparaison ===
+ggplot(df_forecast, aes(x = Date, y = Valeur, color = Modèle)) +
+  geom_line(size = 1) +
+  labs(
+    title = "Prévisions vs Réalisé pour l’année 2018 — Modèles de prévision du CAC 40",
+    x = "Date",
+    y = "Indice CAC 40"
+  ) +
+  theme_minimal(base_size = 13) +
+  scale_color_manual(values = c(
+    "ADAM.ETS" = "#E76F51",
+    "ADAM.ETS.ARIMA" = "#9D4EDD",
+    "ARIMA" = "#277DA1",
+    "Holt.Winters" = "#2A9D8F",
+    "SSARIMA" = "#F72585",
+    "CES" = "#FFB703",
+    "réalisée" = "black"
+  )) +
+  theme(legend.title = element_blank())
+
+```
 
 
