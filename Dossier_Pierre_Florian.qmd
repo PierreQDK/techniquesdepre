@@ -567,6 +567,7 @@ tibble(
   MSE             = c(mse_adam, mse_adamarima, mse_arima, mse_hw, mse_ssarima, mse_ces),
   R2_OOS_naive    = c(r2_adam_naive, r2_adamarima_naive, r2_arima_naive, r2_hw_naive, r2_ssarima_naive, r2_ces_naive)
 )
+mse_naive
 
 mean(cac40_train)
 
@@ -575,8 +576,42 @@ mean(cac40_train)
 
 
 
+### Erreurs de prévision cumulées au carré (CSPE)
 
+```{r}
+library(tidyverse)
 
+# Créer un tibble contenant les erreurs au carré par période
+errors_cumul <- tibble(
+  Mois = rep(1:12, times = 6),
+  Erreur_carrée = c(
+    (cac40_test - prev_adam$mean)^2,
+    (cac40_test - prev_adamarima$mean)^2,
+    (cac40_test - prev_arima$mean)^2,
+    (cac40_test - prev_hw$mean)^2,
+    (cac40_test - prev_ssarima$mean)^2,
+    (cac40_test - prev_ces$mean)^2
+  ),
+  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES"), each = 12)
+)
+
+# Calcul de l’erreur cumulée
+errors_cumul <- errors_cumul %>%
+  group_by(Modèle) %>%
+  mutate(Erreur_cum = cumsum(Erreur_carrée))
+
+# Graphique des erreurs cumulées
+ggplot(errors_cumul, aes(x = Mois, y = Erreur_cum, color = Modèle)) +
+  geom_line(size = 1.2) +
+  labs(
+    title = "Erreurs cumulées de prévision au carré (2018)",
+    x = "Mois",
+    y = "Erreur cumulée",
+    color = "Modèle"
+  ) +
+  theme_minimal(base_size = 13)
+
+```
 
 
 
