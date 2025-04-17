@@ -546,7 +546,31 @@ tibble(
 )
 ```
 
+### Prédiction naïve
 
+```{r}
+# --- Prévision naïve : moyenne de la série d'apprentissage (benchmark alternatif) ---
+naive_forecast <- mean(cac40_train)
+mse_naive <- mean((cac40_test - naive_forecast)^2)
+
+# --- R² OOS par rapport à la prévision naïve ---
+r2_adam_naive       <- 1 - (mse_adam / mse_naive)
+r2_adamarima_naive  <- 1 - (mse_adamarima / mse_naive)
+r2_arima_naive      <- 1 - (mse_arima / mse_naive)
+r2_hw_naive         <- 1 - (mse_hw / mse_naive)
+r2_ssarima_naive    <- 1 - (mse_ssarima / mse_naive)
+r2_ces_naive        <- 1 - (mse_ces / mse_naive)
+
+# --- Tableau résumé avec comparaison au benchmark naïf ---
+tibble(
+  Modèle          = c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES"),
+  MSE             = c(mse_adam, mse_adamarima, mse_arima, mse_hw, mse_ssarima, mse_ces),
+  R2_OOS_naive    = c(r2_adam_naive, r2_adamarima_naive, r2_arima_naive, r2_hw_naive, r2_ssarima_naive, r2_ces_naive)
+)
+
+mean(cac40_train)
+
+```
 
 
 
