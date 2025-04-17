@@ -317,7 +317,7 @@ la méthode LED Holt-Winters, ADAM ETS, ADAM ETS ARIMA, SSARIMA et CES
 
 # POSER AU PROF LA QUESTION : devons-nous utiliser les séries différenciées en fonction du modèle ?
 
-### AR(1)
+### 2.1 - AR(1)
 ```{r}
 library(forecast)
 mod_ar1 <- Arima(diff_cac40_ts, order = c(1, 0, 0))
@@ -325,7 +325,7 @@ summary(mod_ar1)
 ```
 
 
-### AR(p)
+### 2.2 - AR(p)
 
 ```{r}
 mod_arp <- ar(diff_cac40_ts, aic=TRUE, order.max=12)
@@ -335,7 +335,7 @@ mod_arp$ar
 
 
 
-### Autoarima
+### 2.3 - Autoarima
 
 ```{r}
 mod_arima <- auto.arima(cac40_ts)
@@ -343,7 +343,7 @@ summary(mod_arima)
 ```
 
 
-### Lissage Exponentiel Double (LED) de Holt-Winters
+### 2.4 - Lissage Exponentiel Double (LED) de Holt-Winters
 
 ```{r}
 # ---- Modélisation ----
@@ -368,7 +368,7 @@ show(mod)
 ```
 
 
-###  ADAM ETS (Error-Trend-Seasonal)
+### 2.5 - ADAM ETS (Error-Trend-Seasonal)
 
 ```{r}
 # Chargement de la librairie
@@ -394,7 +394,7 @@ prev_adam_ets
 ```
 
 
-### ADAM ETS-ARIMA (modèle hybride)
+### 2.6 - ADAM ETS-ARIMA (modèle hybride)
 
 ```{r}
 # Modèle ADAM ETS + ARIMA
@@ -422,7 +422,7 @@ plot(prev_adam_ets_arima)
 ```
 
 
-### SSARIMA (State Space ARIMA)
+### 2.7 - SSARIMA (State Space ARIMA)
 
 ```{r}
 # Modèle SSARIMA
@@ -450,7 +450,7 @@ prevssarima <- forecast(fitssarima, h = 12, level = 0.90) # ← prévision du mo
 plot(prevssarima)
 ```
 
-### CES (Complex Exponential Smoothing)
+### 2.8 - CES (Complex Exponential Smoothing)
 
 ```{r}
 # Modèle CES (Complex Exponential Smoothing)
@@ -483,13 +483,82 @@ plot(prev_ces)
 
 # 3. Prévision linéaire sur une année 
 
+```{r}
+# Données d'apprentissage jusqu'à 2013
+cac40_train_2013 <- window(cac40_ts, end = c(2013, 12))
+cac40_test_2014  <- window(cac40_ts, start = c(2014, 1), end = c(2014, 12))
+
+# Ré-estimation des modèles
+fit_adam_2013 <- auto.adam(cac40_train_2013, model = "ZZZ", lags = c(1, 12), select = TRUE)
+fit_adamarima_2013 <- auto.adam(cac40_train_2013, model = "ZZZ", lags = c(1, 1, 12),
+                                orders = list(ar = c(3, 3), i = c(2), ma = c(3, 3)), select = TRUE)
+fit_arima_2013 <- auto.arima(cac40_train_2013)
+fit_hw_2013 <- HoltWinters(cac40_train_2013, gamma = FALSE)
+fit_ssarima_2013 <- auto.ssarima(cac40_train_2013, lags = c(1, 12),
+                                 orders = list(ar = c(3, 3), i = c(2), ma = c(3, 3)), select = TRUE)
+fit_ces_2013 <- auto.ces(cac40_train_2013)
+
+# Prévision sur 12 mois
+prev_adam_2014 <- forecast(fit_adam_2013, h = 12)
+prev_adamarima_2014 <- forecast(fit_adamarima_2013, h = 12)
+prev_arima_2014 <- forecast(fit_arima_2013, h = 12)
+prev_hw_2014 <- forecast(fit_hw_2013, h = 12)
+prev_ssarima_2014 <- forecast(fit_ssarima_2013, h = 12)
+prev_ces_2014 <- forecast(fit_ces_2013, h = 12)
+
+```
+
+```{r}
+# Créer l’axe des dates pour 2014
+dates_2014 <- seq(as.Date("2014-01-01"), by = "month", length.out = 12)
+
+# Regrouper toutes les prévisions
+df_forecast_2014 <- tibble(
+  Date = rep(dates_2014, times = 7),
+  Valeur = c(as.numeric(prev_adam_2014$mean),
+             as.numeric(prev_adamarima_2014$mean),
+             as.numeric(prev_arima_2014$mean),
+             as.numeric(prev_hw_2014$mean),
+             as.numeric(prev_ssarima_2014$mean),
+             as.numeric(prev_ces_2014$mean),
+             as.numeric(cac40_test_2014)),
+  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES", "Réalisation"), each = 12)
+)
+
+# Tracer le graphique
+ggplot(df_forecast_2014, aes(x = Date, y = Valeur, color = Modèle)) +
+  geom_line(size = 1) +
+  labs(
+    title = "Prévisions sur l’année 2014 – comparaison des modèles",
+    x = "Date",
+    y = "Indice CAC 40"
+  ) +
+  theme_minimal(base_size = 13) +
+  scale_color_manual(values = c(
+    "ADAM.ETS" = "#E76F51",
+    "ADAM.ETS.ARIMA" = "#9D4EDD",
+    "ARIMA" = "#277DA1",
+    "Holt-Winters" = "#2A9D8F",
+    "SSARIMA" = "#F72585",
+    "CES" = "#FFB703",
+    "Réalisation" = "black"
+  )) +
+  theme(legend.title = element_blank())
+
+```
+
+
+
+
+
+
 
 
 
 # 5. Qualité de prévision 
 
 
-## 5.1 MSE et R2oo
+## 5.1 -  MSE et R2oo
 
 ```{r}
 # Créer la série d'apprentissage (jusqu’à fin 2017)
@@ -516,8 +585,6 @@ prev_ssarima    <- forecast(fit_ssarima, h = h)
 prev_ces        <- forecast(fit_ces, h = h)
 
 ```
-
-
 
 ```{r}
 # MSE
@@ -546,7 +613,7 @@ tibble(
 )
 ```
 
-### Prédiction naïve
+## 5.2 - Prédiction naïve
 
 ```{r}
 # --- Prévision naïve : moyenne de la série d'apprentissage (benchmark alternatif) ---
@@ -576,7 +643,7 @@ mean(cac40_train)
 
 
 
-### Erreurs de prévision cumulées au carré (CSPE)
+## 5.3 -  Erreurs de prévision cumulées au carré (CSPE)
 
 ```{r}
 library(tidyverse)
