@@ -26,11 +26,15 @@ Choix 2 : Série CVS  ou non saisonnière mensuelle
 
 library(tidyquant)
 library(tidyverse)
+library(forecast)
 ```
 
 # 1. Analyse préliminaire
 
 ## a. Présentation et caractérisation de la série étudiée : source, définition, graphique
+
+
+### 1. Présentation
 
 ```{r}
 # Importation des données
@@ -68,6 +72,25 @@ plot.ts(cac40_ts)
 ```
 
 
+### 2. Caractéristiques (saisonnalité ?)
+
+```{r}
+# Seasonal dummies
+sd <- seasdum(cac40_ts)
+show(sd)
+```
+
+Le test des variables muettes saisonnières (seasdum) a été appliqué à la série temporelle cac40_ts afin de détecter la présence d’une composante saisonnière. La statistique de test obtenue est de 1,47, avec une p-value associée de 0,1445. Cette p-value étant supérieure aux seuils usuels de signification (5 % ou même 10 %), on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. Cela signifie qu’il n’existe pas de preuve statistique suffisante pour affirmer que la série CAC 40 présente une variation régulière et récurrente selon les périodes (mois, trimestres, etc.).
+
+
+```{r}
+# Webel-Ollech test - new version of seastests (2021-09)
+wot <- combined_test(cac40_ts)
+show(wot)
+```
+
+Le test combiné de type WO (combined_test) a été réalisé pour détecter des effets saisonniers ou calendaire multiples dans la série cac40_ts. La statistique de test globale est de 0, avec des p-values respectives de 1, 1 et 0,1039 pour les différents sous-tests. La p-value finale étant légèrement supérieure à 10 %, on ne rejette pas non plus l’hypothèse nulle d’absence d’effet saisonnier ou calendaire. Ainsi, ce test ne met pas en évidence de structure saisonnière marquée ni d’effet lié à des facteurs calendaires dans la série analysée.
+
 
 ## b. Détection des points atypiques. Présenter ces points sous forme de tableau (date, type de point (AO, TC …), t-stat) et trouver des explications économiques de l’apparition des 3 plus importants 
 
@@ -85,81 +108,71 @@ Cette chute brutale de niveau subie par le CAC 40 en janvier 2008 correspond tr�
 
 ```{r}
 # Série corrigée des points atypiques
-adj <- fit$yadj
-plot(adj)
+cac40_ts <- fit$yadj
+plot(cac40_ts)
 ```
 
 
 ## c. Vérifier la stationnarité de la série I(0) ou I(1)
 
-### 1. Stationnarité avec ou sans tendance
+### 1. Tests
+
+#### 1. Test de Dickey-Fuller Augmenté (ADF)
 
 ```{r}
-# Créer la variable temps
-temps <- 1:length(cac40_ts)
-
-# --- 1. Régression linéaire pour détecter une tendance linéaire ---
-modele_tendance <- lm(cac40_ts ~ temps)
-
-# Résumé du modèle : vérifier la significativité du coefficient de 'temps'
-summary(modele_tendance)
-```
-
-Le modèle de régression linéaire ajuste la série cac40_ts en fonction du temps pour détecter une éventuelle tendance linéaire. Le coefficient associé à la variable temps est estimé à 1.2691, ce qui suggère une légère croissance au fil du temps. Toutefois, la p-value associée à ce coefficient est de 0.142, soit bien supérieure au seuil classique de 5 %. Cela signifie que, d’un point de vue statistique, aucune tendance linéaire significative ne peut être affirmée dans la série temporelle du CAC 40. Le faible R² (≈ 0.9 %) confirme que le temps n’explique qu’une infime part de la variation de la série. Autrement dit, la série pourrait évoluer dans le temps, mais pas de manière linéaire.
-
-
-```{r}
-# --- 2. Test de Mann-Kendall pour une tendance monotone ---
-library(Kendall)
-
-# Appliquer le test
-test_mk <- Kendall(temps, cac40_ts)
-
-# Résultat
-print(test_mk)
-```
-
-En revanche, le test non paramétrique de Mann-Kendall donne des résultats très différents. Le coefficient de Kendall, tau = 0.157, est positif, ce qui indique une tendance monotone croissante. La p-value associée est de 0.00028, donc très inférieure à 0.05, ce qui permet de rejeter l’hypothèse nulle d’absence de tendance monotone. Ainsi, la série CAC 40 présente bien une tendance monotone significative, même si cette tendance n’est pas nécessairement linéaire. Ce test étant robuste aux formes non linéaires et aux distributions non normales, son résultat est particulièrement fiable dans un contexte de série financière.
-
-
-### 2. Test
-
-#### 1. ADF test
-
-```{r}
+# Chargement des bibliothèques nécessaires
+library(tseries)
 library(urca)
 
-# Appliquer le test ADF avec tendance
-adf_test <- ur.df(cac40_ts, type = "trend", selectlags = "AIC")
-
-# Résultats du test ADF
+# Test de Dickey-Fuller augmenté
+adf_test <- ur.df(
+  cac40_ts, 
+  type = "drift", 
+  selectlags = "AIC"
+)
 summary(adf_test)
 ```
 
-Le test ADF a été réalisé afin de vérifier la présence d'une racine unitaire dans la série cac40_ts, en incluant une tendance dans la régression. La statistique de test obtenue est de -2.1678, ce qui est supérieur à la valeur critique à 5% (-3.43). Cela implique que l’on ne peut pas rejeter l’hypothèse nulle de non-stationnarité. Ce résultat suggère que la série présente probablement une racine unitaire, c’est-à-dire qu’elle est non stationnaire, même en tenant compte d'une tendance déterministe. La faible valeur du R² ajusté (≈ 2,3 %) confirme également une faible capacité explicative du modèle.
+
+Le test de Dickey-Fuller augmentée (ADF) permet de tester l'hypothèse nulle selon laquelle la série temporelle possède une racine unitaire, ce qui indique une non-stationnarité. Dans les résultats, le test ADF fournit une statistique de test de -1.5354, qui est supérieure aux valeurs critiques à 1%, 5% et 10%. Cela indique que nous ne rejetons pas l'hypothèse nulle au seuil de 5%, ce qui suggère que la série temporelle présente une racine unitaire et n'est donc pas stationnaire. En outre, la p-value associée à l'estimation de la pente du modèle (0.126) confirme l'absence de significativité du test, renforçant ainsi l'idée de non-stationnarité.
 
 
-#### 2. KPSS test
+#### 2. Test de Philips et Perron (PP)
 
 ```{r}
-library(tseries)
-
-# Appliquer le test KPSS avec tendance
-kpss_test <- kpss.test(cac40_ts, null = "Trend")
-
-# Résultats du test KPSS
-print(kpss_test)
+# Test de Philips et Perron
+pp_test <- ur.pp(
+  cac40_ts, 
+  type = "Z-tau", 
+  model = "constant", 
+  lags = "short"
+)
+summary(pp_test)
 ```
 
-Le test de stationnarité de KPSS a été appliqué pour tester l’hypothèse nulle selon laquelle la série cac40_ts est stationnaire autour d’une tendance. Le résultat donne une statistique KPSS de 0.40859 avec une p-value inférieure à 0.01, ce qui signifie que l’on rejette l’hypothèse nulle au seuil de 5 %. Ce résultat confirme que la série n’est pas stationnaire autour d’une tendance, ce qui est cohérent avec les observations graphiques et les résultats du test ADF. La série présente donc une dynamique de tendance non stationnaire.
+Le test de Philips et Perron (PP) est également utilisé pour tester la présence d'une racine unitaire dans une série temporelle, mais il est moins sensible aux problèmes d'hétéroscédasticité. Dans ce cas, la statistique de test Z-tau est -1.4192, ce qui est également supérieur aux valeurs critiques à 1%, 5% et 10%. Cela indique, tout comme pour le test ADF, que nous ne rejetons pas l'hypothèse nulle et que la série temporelle n'est pas stationnaire. La p-value pour le coefficient de la variable retardée (0.000) est très significative, indiquant que la série temporelle suit un modèle autorégressif, mais cela ne suffit pas à conclure à la stationnarité.
 
 
-#### 3. Conclusion
+```{r}
+# Test de KPSS
+kpss_test <- ur.kpss(
+  cac40_ts, 
+  type = "mu"
+)
+summary(kpss_test)
+```
 
-L’analyse conjointe des tests ADF et KPSS conduit à la conclusion que la série cac40_ts n’est pas stationnaire, même en présence d’une tendance. Le test ADF ne permet pas de rejeter l’hypothèse de racine unitaire, indiquant une non-stationnarité. Le test KPSS, quant à lui, rejette l’hypothèse nulle de stationnarité autour d’une tendance, confirmant que la série suit une évolution non stationnaire. Ces résultats suggèrent que la série nécessite probablement une transformation (comme la différenciation) pour atteindre la stationnarité, indispensable à la plupart des modèles économétriques en séries temporelles.
+#### 3. Test de KPSS
+
+Le test de KPSS (Kwiatkowski-Phillips-Schmidt-Shin) teste l'hypothèse nulle selon laquelle la série est stationnaire. La statistique de test est de 1.2038, qui est bien au-dessus des valeurs critiques pour le niveau de signification de 1%, 5% et 10% (0.739, 0.463, 0.347 respectivement). Cela suggère que nous rejetons l'hypothèse nulle de stationnarité au seuil de 5%, ce qui appuie la conclusion que la série temporelle est non stationnaire. Cette conclusion est cohérente avec les résultats des tests ADF et PP.
 
 
-### 3. Différenciation de la série
+#### 4. Conclusion
+
+Les résultats des trois tests unitaires (ADF, PP, et KPSS) indiquent que la série temporelle étudiée, en l'occurrence le CAC40, n'est pas stationnaire. Le test ADF et le test PP, tous deux basés sur l'hypothèse de non-stationnarité, n'ont pas permis de rejeter cette hypothèse, et le test KPSS a montré des preuves contraires à la stationnarité. Ces tests convergent vers la même conclusion : la série présente probablement une racine unitaire, ce qui nécessite probablement une différenciation pour la rendre stationnaire avant d'effectuer toute modélisation.
+
+
+### 2. Différenciation de la série
 
 ```{r}
 # 1. Différencier la série
@@ -167,38 +180,59 @@ diff_cac40_ts <- diff(cac40_ts)
 ```
 
 
-### 4. Tester la stationnarité après différenciation
+### 3. Tester la stationnarité après différenciation
 
-#### 1. ADF test
-
-```{r}
-## Test ADF (sans tendance ni drift, car la tendance a été retirée)
-library(urca)
-adf_diff_test <- ur.df(diff_cac40_ts, type = "none", selectlags = "AIC")
-summary(adf_diff_test)
-```
-
-Le test ADF appliqué à la série différenciée diff_cac40_ts présente une statistique de test -11.023, bien en dessous des valeurs critiques à 5% (-1.95). La p-value associée est extrêmement faible (inférieure à 0.01), ce qui nous permet de rejeter l’hypothèse nulle de racine unitaire. Ainsi, après différenciation, la série devient stationnaire. Ce résultat confirme que la différenciation a éliminé la racine unitaire, rendant la série stationnaire.
-
-
-#### 2. KPSS test
+#### 1. Test de Dickey-Fuller Augmenté (ADF)
 
 ```{r}
-## Test KPSS (stationnarité autour d'une constante après différenciation)
-library(tseries)
-kpss_diff_test <- kpss.test(diff_cac40_ts, null = "Level")
-print(kpss_diff_test)
+# Test de Dickey-Fuller augmenté
+adf_test <- ur.df(
+  diff_cac40_ts, 
+  type = "drift", 
+  selectlags = "AIC"
+)
+summary(adf_test)
 ```
 
-Le test KPSS appliqué à la série différenciée montre une statistique KPSS de 0.22442 avec une p-value de 0.1. Comme la p-value est supérieure à 0.05, nous ne rejetons pas l’hypothèse nulle de stationnarité autour d’une constante. Cela suggère que, après différenciation, la série est stationnaire au niveau. Cette stationnarité au niveau implique que la série ne présente plus de tendance ou de dérive non stationnaire, renforçant l’idée que la transformation a été efficace.
+Après différenciation de la série temporelle, le test de Dickey-Fuller augmentée (ADF) fournit une statistique de test de -11.2704. Cette valeur est largement inférieure aux valeurs critiques à 1%, 5%, et 10%, qui sont respectivement -3.46, -2.88 et -2.57. Par conséquent, nous rejetons l'hypothèse nulle de la présence d'une racine unitaire, ce qui indique que la série différenciée est stationnaire. De plus, la p-value associée au coefficient de la variable retardée (z.lag.1) est très significative (<2e-16), renforçant cette conclusion de stationnarité après différenciation.
 
 
-#### 3. Conclusion
+#### 2. Test de Philips et Perron (PP)
 
-Après avoir différencié la série cac40_ts, les résultats des tests montrent une stationnarité évidente. Le test ADF rejette fermement l’hypothèse de racine unitaire, confirmant que la série est stationnaire après différenciation. Le test KPSS soutient également cette conclusion, indiquant que la série est stationnaire autour d’une constante. En résumé, la différenciation a réussi à rendre la série stationnaire, ce qui permet de l’utiliser pour des modèles économétriques appropriés tels que les modèles ARIMA ou autres.
+```{r}
+# Test de Philips et Perron
+pp_test <- ur.pp(
+  diff_cac40_ts, 
+  type = "Z-tau", 
+  model = "constant", 
+  lags = "short"
+)
+summary(pp_test)
+```
+
+Le test de Philips et Perron (PP) sur la série différenciée fournit une statistique de test Z-tau de -14.733, qui est bien en dessous des valeurs critiques de -3.459, -2.874 et -2.573 pour les niveaux de signification respectifs de 1%, 5% et 10%. Cela conduit également au rejet de l'hypothèse nulle de la présence d'une racine unitaire. Cependant, la p-value pour le coefficient de la variable retardée (y.l1) est de 0.379, ce qui indique qu'il n'est pas significativement différent de zéro. Néanmoins, la statistique Z-tau suggère que la série est stationnaire après différenciation.
 
 
-### Corrélogramme
+#### 3. Test de KPSS
+
+```{r}
+# Test de KPSS
+kpss_test <- ur.kpss(
+  diff_cac40_ts, 
+  type = "mu"
+)
+summary(kpss_test)
+```
+
+Le test de KPSS sur la série différenciée donne une statistique de test de 0.2108, bien inférieure aux valeurs critiques à 1%, 5%, 2.5%, et 10% (respectivement 0.739, 0.574, 0.463, et 0.347). Cela permet de ne pas rejeter l'hypothèse nulle de stationnarité au niveau de 5%. Le résultat du test KPSS confirme donc que la série différenciée est stationnaire.
+
+
+#### 4. Conclusion
+
+Les résultats des trois tests unitaires (ADF, PP et KPSS) sur la série temporelle différenciée indiquent que la différenciation a permis de rendre la série stationnaire. Le test ADF et le test PP rejettent l'hypothèse nulle de la présence d'une racine unitaire, et le test KPSS ne rejette pas l'hypothèse nulle de stationnarité. Ces résultats convergent vers la conclusion que la série différenciée est stationnaire, ce qui permet de procéder à des analyses et modélisations futures sur cette série.
+
+
+### 4. Corrélogrammes
 
 ```{r}
 library(gridExtra)
