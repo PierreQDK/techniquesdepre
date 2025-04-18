@@ -336,6 +336,33 @@ Nous devons vérifier si ces valeurs sont réellement atypiques.
 
 
 ```{r}
+diff_cac40_ts |>
+  as.numeric() |>
+  tibble(valeurs = _) |>
+  ggplot(aes(x = "", y = valeurs)) +
+  geom_violin(fill = "white", color = "black") +
+  geom_boxplot(width = 0.5, fill = "grey", outlier.color = "red",
+               outlier.size = 2, staplewidth = 0.2) +
+  coord_flip() +
+  labs(
+    title = "Distribution de la série différenciée du CAC 40",
+    x = "",
+    y = "Valeurs différenciées"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+    axis.title.x = element_text(size = 14),
+    axis.text.x = element_text(size = 12)
+  )
+
+```
+
+
+
+
+
+```{r}
 library(EnvStats)
 rosnerTest(diff_cac40_ts, k = 10, alpha = 0.05)
 ```
