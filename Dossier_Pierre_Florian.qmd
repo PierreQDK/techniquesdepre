@@ -754,3 +754,99 @@ tibble(
 
 ```
 
+
+# 7. Prévision à 1 pas du meilleur modèle de la question 6
+
+```{r}
+# Prévision glissante sur l’année 2014 avec modèle ADAM ETS
+# Année 2014
+library(smooth)
+library(tibble)
+
+# Initialisation
+h <- 1  # prévision à un mois
+start_year <- 2014
+start_month <- 1
+
+# Vecteurs pour stocker les résultats
+preds_adam <- numeric(12)
+real_2014 <- numeric(12)
+
+for (i in 0:11) {
+  # Définir la fin de la fenêtre d'apprentissage
+  train_end <- c(start_year, start_month + i - 1)
+  
+  # Extraire les données d'entraînement et la vraie valeur du mois à prévoir
+  train_window <- window(cac40_ts, end = train_end)
+  test_value <- window(cac40_ts, start = c(start_year, start_month + i), end = c(start_year, start_month + i))
+  
+  # Estimer le modèle ADAM.ETS sur la fenêtre glissante
+  model_adam <- auto.adam(train_window, model = "ZZZ", lags = c(1, 12), select = TRUE)
+  forecast_adam <- forecast(model_adam, h = h)
+  
+  # Stocker la prévision et la valeur réelle
+  preds_adam[i + 1] <- forecast_adam$mean[1]
+  real_2014[i + 1] <- as.numeric(test_value)
+}
+
+# Créer le tableau de résultats
+df_glissant_adam <- tibble(
+  Mois = 1:12,
+  Réalisé = real_2014,
+  Prévu = preds_adam,
+  Erreur = real_2014 - preds_adam,
+  Erreur2 = (real_2014 - preds_adam)^2
+)
+
+# Affichage du tableau
+df_glissant_adam
+
+```
+
+
+```{r}
+# Pour 2019
+
+library(smooth)
+library(tibble)
+
+# Initialisation
+h <- 1  # prévision à un mois
+start_year <- 2019
+start_month <- 1
+
+# Vecteurs pour stocker les résultats
+preds_adam <- numeric(12)
+real_2019 <- numeric(12)
+
+for (i in 0:11) {
+  # Définir la fin de la fenêtre d'apprentissage (mois précédent)
+  train_end <- c(start_year, start_month + i - 1)
+  
+  # Extraire la série d’apprentissage glissante et la vraie valeur suivante
+  train_window <- window(cac40_ts, end = train_end)
+  test_value <- window(cac40_ts, start = c(start_year, start_month + i), end = c(start_year, start_month + i))
+  
+  # Estimation du modèle ADAM ETS
+  model_adam <- auto.adam(train_window, model = "ZZZ", lags = c(1, 12), select = TRUE)
+  forecast_adam <- forecast(model_adam, h = h)
+  
+  # Stocker la prévision et la valeur observée
+  preds_adam[i + 1] <- forecast_adam$mean[1]
+  real_2019[i + 1] <- as.numeric(test_value)
+}
+
+# Création du tableau de résultats
+df_glissant_adam <- tibble(
+  Mois = 1:12,
+  Réalisé = real_2019,
+  Prévu = preds_adam,
+  Erreur = real_2019 - preds_adam,
+  Erreur2 = (real_2019 - preds_adam)^2
+)
+
+# Affichage
+df_glissant_adam
+
+```
+
