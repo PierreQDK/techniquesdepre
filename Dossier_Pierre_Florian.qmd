@@ -704,3 +704,53 @@ ggplot(errors_cumul, aes(x = Mois, y = Erreur_cum, color = Modèle)) +
 
 
 
+
+# 6. Test de précision
+
+
+```{r}
+# Erreurs de prévision
+err_adam       <- cac40_test - prev_adam$mean
+err_adamarima  <- cac40_test - prev_adamarima$mean
+err_arima      <- cac40_test - prev_arima$mean
+err_hw         <- cac40_test - prev_hw$mean
+err_ssarima    <- cac40_test - prev_ssarima$mean
+err_ces        <- cac40_test - prev_ces$mean
+
+# Prévision naïve : moyenne constante
+naive_forecast <- ts(rep(mean(cac40_train), 12), start = c(2018, 1), frequency = 12)
+err_naive      <- cac40_test - naive_forecast
+
+```
+
+
+```{r}
+# Tests DM : modèle vs prévision naïve (h = 1 car horizon = 1 par point)
+dm_adam <- dm.test(err_adam, err_naive, h = 1, alternative = "less")
+dm_adamarima <- dm.test(err_adamarima, err_naive, h = 1, alternative = "less")
+dm_arima <- dm.test(err_arima, err_naive, h = 1, alternative = "less")
+dm_hw <- dm.test(err_hw, err_naive, h = 1, alternative = "less")
+dm_ssarima <- dm.test(err_ssarima, err_naive, h = 1, alternative = "less")
+dm_ces <- dm.test(err_ces, err_naive, h = 1, alternative = "less")
+
+```
+
+
+
+```{r}
+library(tibble)
+
+tibble(
+  Modèle = c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES"),
+  p_value_DM_naive = c(
+    dm_adam$p.value,
+    dm_adamarima$p.value,
+    dm_arima$p.value,
+    dm_hw$p.value,
+    dm_ssarima$p.value,
+    dm_ces$p.value
+  )
+)
+
+```
+
