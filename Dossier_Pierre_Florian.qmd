@@ -95,23 +95,65 @@ Le test combiné de type WO (combined_test) a été réalisé pour détecter des
 
 ## b. Détection des points atypiques. Présenter ces points sous forme de tableau (date, type de point (AO, TC …), t-stat) et trouver des explications économiques de l’apparition des 3 plus importants 
 
+### 1. Première détection
+
 ```{r}
+# Détection
+
 library(tsoutliers)
 
-fit <- tso(cac40_ts)
-plot(fit)
-show(fit)
+ajustement1 <- tso(cac40_ts)
+plot(ajustement1)
+show(ajustement1)
 ```
 
-À l’indice 97, soit en janvier 2008, le modèle détecte un changement négatif de niveau (LS) important sur le CAC 40, de l’ordre de –726 points. Il s'agit d’un point atypique structurel dans la série.
+En janvier 2008 (97e observation de la série), le modèle détecte un changement négatif de niveau (LS) important sur le CAC 40, de l’ordre de –726 points. Il s'agit d’un point atypique structurel dans la série.
 Cette chute brutale de niveau subie par le CAC 40 en janvier 2008 correspond très probablement au début de la crise financière mondiale des subprimes. Le marché avait commencé à anticiper l'effondrement des banques, ce qui a provoqué une forte baisse des indices boursiers.
 
 
 ```{r}
 # Série corrigée des points atypiques
-cac40_ts <- fit$yadj
+
+cac40_ts <- ajustement1$yadj
 plot(cac40_ts)
 ```
+
+
+
+### 2. Deuxième détection
+
+```{r}
+# Détection
+
+ajustement2 <- tso(cac40_ts)
+plot(ajustement2)
+show(ajustement2)
+```
+
+En septembre 2001 (21e observation de la série), le modèle détecte un changement transitoire de niveau (TC) significatif sur le CAC 40, d’environ –639 points. Ce type d’anomalie indique un effet temporaire qui se dissipe progressivement dans le temps. Cet événement correspond très probablement aux attentats du 11 septembre 2001, qui ont provoqué une forte chute temporaire des marchés financiers mondiaux, marqués par un choc d'incertitude et de panique.
+
+Un an plus tard, en septembre 2002 (33e observation), le modèle identifie un point atypique (AO) d’environ –517 points. Il s'agit d'un choc ponctuel avec un impact direct et isolé sur le niveau du CAC 40. Cette anomalie pourrait refléter une crise de confiance persistante, alimentée par la prolongation des effets économiques post-11 septembre et par les scandales financiers majeurs, notamment Enron (2001) et WorldCom (2002), qui ont fortement affecté la crédibilité des marchés financiers et contribué à la volatilité de l’époque.
+
+
+```{r}
+# Série corrigée des points atypiques
+
+cac40_ts <- ajustement2$yadj
+plot(cac40_ts)
+```
+
+
+### 3. Troisième détection
+
+```{r}
+# Détection
+
+ajustement3 <- tso(cac40_ts)
+plot(ajustement3)
+show(ajustement3)
+```
+
+Aucun point atypique détecté.
 
 
 ## c. Vérifier la stationnarité de la série I(0) ou I(1)
@@ -134,8 +176,7 @@ adf_test <- ur.df(
 summary(adf_test)
 ```
 
-
-Le test de Dickey-Fuller augmentée (ADF) permet de tester l'hypothèse nulle selon laquelle la série temporelle possède une racine unitaire, ce qui indique une non-stationnarité. Dans les résultats, le test ADF fournit une statistique de test de -1.5354, qui est supérieure aux valeurs critiques à 1%, 5% et 10%. Cela indique que nous ne rejetons pas l'hypothèse nulle au seuil de 5%, ce qui suggère que la série temporelle présente une racine unitaire et n'est donc pas stationnaire. En outre, la p-value associée à l'estimation de la pente du modèle (0.126) confirme l'absence de significativité du test, renforçant ainsi l'idée de non-stationnarité.
+Le test de Dickey-Fuller augmentée (ADF) permet de tester l'hypothèse nulle selon laquelle la série temporelle possède une racine unitaire, ce qui indique une non-stationnarité. Dans les résultats, le test ADF fournit une statistique de test de -1.4688, qui est supérieure aux valeurs critiques à 1% (-3.46), 5% (-2.88) et 10% (-2.57). Cela indique que nous ne rejetons pas l'hypothèse nulle au seuil de 5%, ce qui suggère que la série temporelle présente une racine unitaire et n'est donc pas stationnaire. En outre, la p-value associée à l’estimation de la pente du modèle (0.143) confirme l’absence de significativité du test, renforçant ainsi l’idée de non-stationnarité.
 
 
 #### 2. Test de Philips et Perron (PP)
@@ -151,7 +192,7 @@ pp_test <- ur.pp(
 summary(pp_test)
 ```
 
-Le test de Philips et Perron (PP) est également utilisé pour tester la présence d'une racine unitaire dans une série temporelle, mais il est moins sensible aux problèmes d'hétéroscédasticité. Dans ce cas, la statistique de test Z-tau est -1.4192, ce qui est également supérieur aux valeurs critiques à 1%, 5% et 10%. Cela indique, tout comme pour le test ADF, que nous ne rejetons pas l'hypothèse nulle et que la série temporelle n'est pas stationnaire. La p-value pour le coefficient de la variable retardée (0.000) est très significative, indiquant que la série temporelle suit un modèle autorégressif, mais cela ne suffit pas à conclure à la stationnarité.
+Le test de Phillips et Perron (PP) est également utilisé pour tester la présence d'une racine unitaire dans une série temporelle, mais il est moins sensible aux problèmes d'hétéroscédasticité. Dans ce cas, la statistique de test Z-tau est -1.3614, ce qui est également supérieur aux valeurs critiques à 1% (-3.4591), 5% (-2.8737) et 10% (-2.5732). Cela indique, tout comme pour le test ADF, que nous ne rejetons pas l'hypothèse nulle et que la série temporelle n'est pas stationnaire. La p-value pour le coefficient de la variable retardée (< 2e-16) est très significative, indiquant que la série temporelle suit un modèle autorégressif, mais cela ne suffit pas à conclure à la stationnarité.
 
 
 #### 3. Test de KPSS
@@ -165,12 +206,13 @@ kpss_test <- ur.kpss(
 summary(kpss_test)
 ```
 
-Le test de KPSS (Kwiatkowski-Phillips-Schmidt-Shin) teste l'hypothèse nulle selon laquelle la série est stationnaire. La statistique de test est de 1.2038, qui est bien au-dessus des valeurs critiques pour le niveau de signification de 1%, 5% et 10% (0.739, 0.463, 0.347 respectivement). Cela suggère que nous rejetons l'hypothèse nulle de stationnarité au seuil de 5%, ce qui appuie la conclusion que la série temporelle est non stationnaire. Cette conclusion est cohérente avec les résultats des tests ADF et PP.
+Le test de KPSS (Kwiatkowski-Phillips-Schmidt-Shin) teste l'hypothèse nulle selon laquelle la série est stationnaire. La statistique de test est de 1.1633, qui est bien au-dessus des valeurs critiques pour le niveau de signification de 1%, 5% et 10% (0.739, 0.463, 0.347 respectivement). Cela suggère que nous rejetons l'hypothèse nulle de stationnarité au seuil de 5%, ce qui appuie la conclusion que la série temporelle est non stationnaire. Cette conclusion est cohérente avec les résultats des tests ADF et PP.
 
 
 #### 4. Conclusion
 
 Les résultats des trois tests unitaires (ADF, PP, et KPSS) indiquent que la série temporelle étudiée, en l'occurrence le CAC40, n'est pas stationnaire. Le test ADF et le test PP, tous deux basés sur l'hypothèse de non-stationnarité, n'ont pas permis de rejeter cette hypothèse, et le test KPSS a montré des preuves contraires à la stationnarité. Ces tests convergent vers la même conclusion : la série présente probablement une racine unitaire, ce qui nécessite probablement une différenciation pour la rendre stationnaire avant d'effectuer toute modélisation.
+
 
 
 ### 2. Différenciation de la série
@@ -196,7 +238,7 @@ adf_test <- ur.df(
 summary(adf_test)
 ```
 
-Après différenciation de la série temporelle, la statistique du test ADF est de -11.2932, bien inférieure aux valeurs critiques à 1%, 5%, et 10% (-2.58, -1.95, -1.62, respectivement). La p-value associée est inférieure à 2e-16, ce qui permet de rejeter l'hypothèse nulle de racine unitaire. Cela suggère que la série devient stationnaire après différenciation, ce qui est cohérent avec l'idée que la non-stationnarité observée initialement pourrait être résolue par la différenciation.
+Après différenciation de la série temporelle, la statistique du test ADF est de -11.2216, bien inférieure aux valeurs critiques à 1%, 5% et 10% (-2.58, -1.95, -1.62, respectivement). La p-value associée est inférieure à 2e-16, ce qui permet de rejeter l'hypothèse nulle de racine unitaire. Cela suggère que la série devient stationnaire après différenciation, ce qui est cohérent avec l'idée que la non-stationnarité observée initialement pourrait être résolue par la différenciation.
 
 
 #### 2. Test de Philips et Perron (PP)
@@ -212,7 +254,7 @@ pp_test <- ur.pp(
 summary(pp_test)
 ```
 
-Le test PP montre une statistique Z-tau de -14.733, bien inférieure aux valeurs critiques à 1%, 5%, et 10% (-3.459, -2.873, -2.573). De plus, la p-value pour le coefficient retardé est de 0.3794, ce qui signifie que l'on ne peut pas rejeter l'hypothèse nulle d'absence de racine unitaire. Le test confirme que, après différenciation, la série devient stationnaire, appuyant ainsi l'idée que la série est désormais stabilisée et ne présente plus de racine unitaire.
+Le test PP montre une statistique Z-tau de -14.6639, bien inférieure aux valeurs critiques à 1%, 5% et 10% (-3.459, -2.874, -2.573). De plus, la p-value pour le coefficient retardé est de 0.324, ce qui signifie que l'on ne peut pas rejeter l'hypothèse nulle d'absence de racine unitaire uniquement sur cette base. Toutefois, la valeur très faible de la statistique Z-tau permet de conclure que, après différenciation, la série devient stationnaire, appuyant ainsi l'idée que la série est désormais stabilisée et ne présente plus de racine unitaire.
 
 
 #### 3. Test de KPSS
@@ -226,7 +268,7 @@ kpss_test <- ur.kpss(
 summary(kpss_test)
 ```
 
-Le test de KPSS donne une statistique de test de 0.2108, qui est inférieure aux valeurs critiques à 1%, 5%, et 10% (0.739, 0.463, et 0.347 respectivement). Cela indique que nous ne rejetons pas l'hypothèse nulle de stationnarité de la série après différenciation. Ce résultat renforce les conclusions des tests ADF et PP, montrant que la série est devenue stationnaire après différenciation.
+Le test de KPSS donne une statistique de test de 0.2208, qui est inférieure aux valeurs critiques à 1%, 5% et 10% (0.739, 0.463, 0.347 respectivement). Cela indique que nous ne rejetons pas l'hypothèse nulle de stationnarité de la série après différenciation. Ce résultat renforce les conclusions des tests ADF et PP, montrant que la série est devenue stationnaire après différenciation.
 
 
 #### 4. Conclusion
@@ -254,10 +296,12 @@ acf_graph2 <- diff_cac40_ts |>
 grid.arrange(acf_graph1, acf_graph2, ncol = 2)
 ```
 
-Avant la différenciation, la série non stationnaire (comme une série intégrée I(1)) montre une autocorrélation significative sur les premiers lags, ce qui indique la présence d'une racine unitaire et l'absence de stationnarité. En revanche, après la différenciation, l'ACF se stabilise autour de zéro, avec des autocorrélations non significatives, ce qui suggère que la série est devenue stationnaire (I(0)). Ainsi, l'ACF de la série différenciée ne montre plus d'autocorrélations significatives, confirmant que la différenciation a éliminé la non-stationnarité, rendant la série adaptée à des analyses économétriques.
+Avant la différenciation, la série, non stationnaire (comme une série intégrée I(1)), présente une autocorrélation significative sur les premiers retards, ce qui suggère la présence d'une racine unitaire et l'absence de stationnarité. Après la différenciation, l'ACF montre une légère autocorrélation au troisième retard, avec des autocorrélations non significatives pour les autres retards, ce qui indique que la série est devenue stationnaire (I(0)). Ainsi, l'ACF de la série différenciée ne présente plus d'autocorrélations significatives, à l'exception d'une autocorrélation résiduelle éventuelle au troisième retard, suggérant que la différenciation a éliminé la non-stationnarité, rendant la série adaptée à des analyses économétriques.
 
 
 ## d. Statistiques descriptives (moyenne, écart-type, skewness, kurtosis normalité, box-plot …). (cf. Chapitre 3 p38) Commenter
+
+### 1. Statistiques
 
 ```{r}
 library(fBasics)
@@ -267,18 +311,23 @@ show(stats)
 ```
 
 
+### 2. Normalité
+
 ```{r}
 shapiro.test(diff_cac40_ts)
 ```
 
-La p-value de 0.0007381, inférieure à 0.01, indique que l'hypothèse nulle est rejetée au seuil de risque de 1%. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série différenciée du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
+La p-value de 0.01046, inférieure au seuil de 5 %, indique que l'hypothèse nulle de normalité est rejetée au seuil de risque de 5 %. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série différenciée du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
 
+
+### 3. Boîte à moustache
 
 ```{r}
 boxplot(
   diff_cac40_ts,
-  main = "Boxplot de la série diff_cac40",
-  ylab = "Différenciation du CAC40"
+  main = "Boîte à moustaches de la série différenciée",
+  ylab = "Valeurs différenciées",
+  col = "lightblue"
 )
 ```
 
@@ -292,7 +341,6 @@ rosnerTest(diff_cac40_ts, k = 10, alpha = 0.05)
 ```
 
 D'après le test de Rosner, ces valeurs ne sont pas considérées comme atypiques.
-
 
 
 
