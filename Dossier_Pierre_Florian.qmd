@@ -27,7 +27,6 @@ Choix 2 : Série CVS  ou non saisonnière mensuelle
 library(tidyquant)
 library(tidyverse)
 library(forecast)
-library(seastests)
 ```
 
 # 1. Analyse préliminaire
@@ -155,6 +154,8 @@ summary(pp_test)
 Le test de Philips et Perron (PP) est également utilisé pour tester la présence d'une racine unitaire dans une série temporelle, mais il est moins sensible aux problèmes d'hétéroscédasticité. Dans ce cas, la statistique de test Z-tau est -1.4192, ce qui est également supérieur aux valeurs critiques à 1%, 5% et 10%. Cela indique, tout comme pour le test ADF, que nous ne rejetons pas l'hypothèse nulle et que la série temporelle n'est pas stationnaire. La p-value pour le coefficient de la variable retardée (0.000) est très significative, indiquant que la série temporelle suit un modèle autorégressif, mais cela ne suffit pas à conclure à la stationnarité.
 
 
+#### 3. Test de KPSS
+
 ```{r}
 # Test de KPSS
 kpss_test <- ur.kpss(
@@ -163,8 +164,6 @@ kpss_test <- ur.kpss(
 )
 summary(kpss_test)
 ```
-
-#### 3. Test de KPSS
 
 Le test de KPSS (Kwiatkowski-Phillips-Schmidt-Shin) teste l'hypothèse nulle selon laquelle la série est stationnaire. La statistique de test est de 1.2038, qui est bien au-dessus des valeurs critiques pour le niveau de signification de 1%, 5% et 10% (0.739, 0.463, 0.347 respectivement). Cela suggère que nous rejetons l'hypothèse nulle de stationnarité au seuil de 5%, ce qui appuie la conclusion que la série temporelle est non stationnaire. Cette conclusion est cohérente avec les résultats des tests ADF et PP.
 
@@ -179,6 +178,7 @@ Les résultats des trois tests unitaires (ADF, PP, et KPSS) indiquent que la sé
 ```{r}
 # 1. Différencier la série
 diff_cac40_ts <- diff(cac40_ts)
+ts.plot(diff_cac40_ts)
 ```
 
 
@@ -190,13 +190,13 @@ diff_cac40_ts <- diff(cac40_ts)
 # Test de Dickey-Fuller augmenté
 adf_test <- ur.df(
   diff_cac40_ts, 
-  type = "drift", 
+  type = "none", 
   selectlags = "AIC"
 )
 summary(adf_test)
 ```
 
-Après différenciation de la série temporelle, le test de Dickey-Fuller augmentée (ADF) fournit une statistique de test de -11.2704. Cette valeur est largement inférieure aux valeurs critiques à 1%, 5%, et 10%, qui sont respectivement -3.46, -2.88 et -2.57. Par conséquent, nous rejetons l'hypothèse nulle de la présence d'une racine unitaire, ce qui indique que la série différenciée est stationnaire. De plus, la p-value associée au coefficient de la variable retardée (z.lag.1) est très significative (<2e-16), renforçant cette conclusion de stationnarité après différenciation.
+Après différenciation de la série temporelle, la statistique du test ADF est de -11.2932, bien inférieure aux valeurs critiques à 1%, 5%, et 10% (-2.58, -1.95, -1.62, respectivement). La p-value associée est inférieure à 2e-16, ce qui permet de rejeter l'hypothèse nulle de racine unitaire. Cela suggère que la série devient stationnaire après différenciation, ce qui est cohérent avec l'idée que la non-stationnarité observée initialement pourrait être résolue par la différenciation.
 
 
 #### 2. Test de Philips et Perron (PP)
@@ -212,7 +212,7 @@ pp_test <- ur.pp(
 summary(pp_test)
 ```
 
-Le test de Philips et Perron (PP) sur la série différenciée fournit une statistique de test Z-tau de -14.733, qui est bien en dessous des valeurs critiques de -3.459, -2.874 et -2.573 pour les niveaux de signification respectifs de 1%, 5% et 10%. Cela conduit également au rejet de l'hypothèse nulle de la présence d'une racine unitaire. Cependant, la p-value pour le coefficient de la variable retardée (y.l1) est de 0.379, ce qui indique qu'il n'est pas significativement différent de zéro. Néanmoins, la statistique Z-tau suggère que la série est stationnaire après différenciation.
+Le test PP montre une statistique Z-tau de -14.733, bien inférieure aux valeurs critiques à 1%, 5%, et 10% (-3.459, -2.873, -2.573). De plus, la p-value pour le coefficient retardé est de 0.3794, ce qui signifie que l'on ne peut pas rejeter l'hypothèse nulle d'absence de racine unitaire. Le test confirme que, après différenciation, la série devient stationnaire, appuyant ainsi l'idée que la série est désormais stabilisée et ne présente plus de racine unitaire.
 
 
 #### 3. Test de KPSS
@@ -226,12 +226,12 @@ kpss_test <- ur.kpss(
 summary(kpss_test)
 ```
 
-Le test de KPSS sur la série différenciée donne une statistique de test de 0.2108, bien inférieure aux valeurs critiques à 1%, 5%, 2.5%, et 10% (respectivement 0.739, 0.574, 0.463, et 0.347). Cela permet de ne pas rejeter l'hypothèse nulle de stationnarité au niveau de 5%. Le résultat du test KPSS confirme donc que la série différenciée est stationnaire.
+Le test de KPSS donne une statistique de test de 0.2108, qui est inférieure aux valeurs critiques à 1%, 5%, et 10% (0.739, 0.463, et 0.347 respectivement). Cela indique que nous ne rejetons pas l'hypothèse nulle de stationnarité de la série après différenciation. Ce résultat renforce les conclusions des tests ADF et PP, montrant que la série est devenue stationnaire après différenciation.
 
 
 #### 4. Conclusion
 
-Les résultats des trois tests unitaires (ADF, PP et KPSS) sur la série temporelle différenciée indiquent que la différenciation a permis de rendre la série stationnaire. Le test ADF et le test PP rejettent l'hypothèse nulle de la présence d'une racine unitaire, et le test KPSS ne rejette pas l'hypothèse nulle de stationnarité. Ces résultats convergent vers la conclusion que la série différenciée est stationnaire, ce qui permet de procéder à des analyses et modélisations futures sur cette série.
+Après la différenciation de la série temporelle, les trois tests unitaires (ADF, PP, et KPSS) confirment que la série devient stationnaire. Le test ADF et le test PP rejettent l'hypothèse de racine unitaire, tandis que le test KPSS ne rejette pas l'hypothèse de stationnarité. Ces résultats indiquent que la différenciation a permis de rendre la série temporelle stationnaire, ce qui est une étape clé avant toute modélisation ou analyse plus approfondie.
 
 
 ### 4. Corrélogrammes
@@ -267,27 +267,12 @@ show(stats)
 ```
 
 
-La série différenciée du CAC 40 présente un minimum de -744,29, qui correspond à janvier 2008, ce qui reflète une chute importante de l'indice à cette période, probablement en raison de la crise financière mondiale déclenchée par la crise des subprimes, entraînant une baisse significative de l'indice.
-
-Le maximum de 531,15 représente une hausse notable de l'indice, mais cette variation positive reste inférieure à la baisse maximale.
-
-La moyenne de 1,35 indique que, en moyenne, les variations journalières de l'indice sont légèrement positives. Cependant, cette moyenne est faible, suggérant des fluctuations modérées au quotidien.
-
-La médiane est de 38,08, ce qui montre qu'une proportion significative des observations diffère considérablement de la moyenne. En d'autres termes, la série n'est pas symétrique et présente une certaine asymétrie dans les variations de l'indice, avec des valeurs qui peuvent s'écarter de la moyenne de manière plus prononcée.
-
-L'écart-type de 211,13 reflète la volatilité relativement élevée de la série. Les variations journalières du CAC 40 s'écartent de la moyenne de manière substantielle, ce qui indique une instabilité dans les mouvements de l'indice et des fluctuations importantes dans ses valeurs.
-
-La skewness de -0,66 suggère que la distribution de la série est légèrement asymétrique à gauche. Cela signifie qu'il y a une prédisposition pour les baisses de l'indice à être plus marquées que les hausses, créant une queue plus longue du côté négatif de la distribution.
-
-Enfin, la kurtosis de 0,71 est inférieure à 3, ce qui indique que la distribution des variations est moins pointue que celle d'une distribution normale. Il y a donc moins de valeurs extrêmes dans la série, ce qui suggère que les mouvements extrêmes du CAC 40 sont relativement rares par rapport à une distribution normale.
-
-
 ```{r}
-# ATTENTION : hypothèses à vérifier avant d'utiliser ce test
 shapiro.test(diff_cac40_ts)
 ```
 
-La p-value de 0.0001398, inférieure à 0.01, indique que l'hypothèse nulle est rejetée au seuil de risque de 1%. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série différenciée du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
+La p-value de 0.0007381, inférieure à 0.01, indique que l'hypothèse nulle est rejetée au seuil de risque de 1%. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série différenciée du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
+
 
 ```{r}
 boxplot(
@@ -311,16 +296,17 @@ D'après le test de Rosner, ces valeurs ne sont pas considérées comme atypique
 
 
 
-# 2. Estimation des modèles linéaires  
-## a. Estimer et commenter les paramètres des modèles AR(1), AR(p) et ARIMA(p,d,q) et de 
-la méthode LED Holt-Winters, ADAM ETS, ADAM ETS ARIMA, SSARIMA et CES 
+# 2. Estimation des modèles linéaires
+
+## a. Estimer et commenter les paramètres des modèles AR(1), AR(p) et ARIMA(p,d,q) et de la méthode LED Holt-Winters, ADAM ETS, ADAM ETS ARIMA, SSARIMA et CES 
 
 # POSER AU PROF LA QUESTION : devons-nous utiliser les séries différenciées en fonction du modèle ?
 
-### 2.1 - AR(1)
+###  2.1 - AR(1)
+
 ```{r}
 library(forecast)
-mod_ar1 <- Arima(diff_cac40_ts, order = c(1, 0, 0))
+mod_ar1 <- Arima(diff_cac40_ts, order = c(1,0,0))
 summary(mod_ar1)
 ```
 
@@ -333,6 +319,42 @@ mod_arp$order
 mod_arp$ar
 ```
 
+```{r}
+library(tibble)
+library(purrr)
+library(forecast)
+library(tidyr)
+
+# Liste des ordres
+ordre_p <- 1:10
+
+# Estimation des modèles AR(p)
+mods_arp <- map(ordre_p, ~ Arima(diff_cac40_ts, order = c(.x, 0, 0)))
+
+# Tableau
+resultat_arp <- tibble(
+  modele = paste0("AR(", ordre_p, ")"),
+  mean = map_dbl(mods_arp, ~ coef(.x)["intercept"]),
+  ar1 = map_dbl(mods_arp, ~ coef(.x)["ar1"]),
+  ar2 = map_dbl(mods_arp, ~ ifelse(.x$arma[1] >= 2, coef(.x)["ar2"], NA_real_)),
+  ar3 = map_dbl(mods_arp, ~ ifelse(.x$arma[1] >= 3, coef(.x)["ar3"], NA_real_)),
+  ar4 = map_dbl(mods_arp, ~ ifelse(.x$arma[1] >= 4, coef(.x)["ar4"], NA_real_)),
+  ar5 = map_dbl(mods_arp, ~ ifelse(.x$arma[1] >= 5, coef(.x)["ar5"], NA_real_)),
+  ar6 = map_dbl(mods_arp, ~ ifelse(.x$arma[1] >= 6, coef(.x)["ar6"], NA_real_)),
+  ar7 = map_dbl(mods_arp, ~ ifelse(.x$arma[1] >= 7, coef(.x)["ar7"], NA_real_)),
+  ar8 = map_dbl(mods_arp, ~ ifelse(.x$arma[1] >= 8, coef(.x)["ar8"], NA_real_)),
+  ar9 = map_dbl(mods_arp, ~ ifelse(.x$arma[1] >= 9, coef(.x)["ar9"], NA_real_)),
+  ar10 = map_dbl(mods_arp, ~ ifelse(.x$arma[1] >= 10, coef(.x)["ar10"], NA_real_)),
+  aic = map_dbl(mods_arp, ~ AIC(.x)),
+  aicc = map_dbl(mods_arp, ~ AICc(.x))
+) |> 
+  pivot_longer(cols = -modele, names_to = "parametre", values_to = "valeur") |> 
+  pivot_wider(names_from = "modele", values_from = "valeur")
+
+resultat_arp
+
+# View(resultat_arp)
+```
 
 
 ### 2.3 - Autoarima
