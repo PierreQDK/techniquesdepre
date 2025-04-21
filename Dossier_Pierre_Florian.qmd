@@ -925,3 +925,34 @@ df_glissant_adam
 
 ```
 
+
+
+
+
+```{r}
+# Graphique des prévisions sur l'année 2018 (voir code précédent pour df_forecast_2018)
+
+ggplot(df_forecast_2018, aes(x = Date, y = Valeur, color = Modèle)) +
+  geom_line(size = 1.1) +
+  labs(
+    title = "Évolution des prévisions des différents modèles – Année 2018",
+    subtitle = "Comparaison avec la série réalisée (CAC 40)",
+    x = "Date",
+    y = "Indice CAC 40"
+  ) +
+  theme_minimal(base_size = 13) +
+  scale_color_manual(values = c(
+    "ADAM.ETS" = "#E76F51",
+    "ADAM.ETS.ARIMA" = "#9D4EDD",
+    "ARIMA" = "#277DA1",
+    "Holt-Winters" = "#2A9D8F",
+    "SSARIMA" = "#F72585",
+    "CES" = "#FFB703",
+    "Réalisation" = "black"
+  )) +
+  theme(legend.title = element_blank())
+
+```
+
+
+
