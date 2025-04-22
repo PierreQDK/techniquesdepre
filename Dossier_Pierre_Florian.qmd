@@ -96,9 +96,9 @@ plot.ts(cac40_prev_ts)
 
 ```{r}
 ## X13 method
-myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
-summary(myregx13)
-s_transform(myregx13)
+#myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
+#summary(myregx13)
+#s_transform(myregx13)
 # plot(myregx13)
 ```
 
@@ -124,9 +124,9 @@ cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
 
 ```{r}
 ## X13 method
-myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
-summary(myregx13)
-s_transform(myregx13)
+#myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
+#summary(myregx13)
+#s_transform(myregx13)
 # plot(myregx13)
 ```
 
@@ -137,14 +137,14 @@ Aucun autre point atypique détecté
 
 ```{r}
 log_cac40_ts <- log(cac40_ts)
-log_cac40_prev_ts <- log(cac40_prev_ts)
+log_cac40_prev <- log(cac40_prev_ts)
 ```
 
 ```{r}
 ## X13 method
-myregx13 <- regarima_x13(log_cac40_ts, spec ="RG5c")
-summary(myregx13)
-s_transform(myregx13)
+#myregx13 <- regarima_x13(log_cac40_ts, spec ="RG5c")
+#summary(myregx13)
+#s_transform(myregx13)
 # plot(myregx13)
 ```
 
@@ -324,7 +324,7 @@ Avant la différenciation, la série, non stationnaire (comme une série intégr
 ```{r}
 library(fBasics)
 
-stats <- basicStats(diff_log_cac40_ts)
+stats <- basicStats(log_cac40_ts)
 show(stats)
 ```
 
@@ -505,38 +505,9 @@ prevssarima <- forecast(fitssarima, h = 12, level = 0.90) # ← prévision du mo
 plot(prevssarima)
 ```
 
-### 2.6 - CES (Complex Exponential Smoothing)
-
-```{r}
-# Modèle CES (Complex Exponential Smoothing)
-library(smooth)
-
-# Estimation automatique du meilleur modèle CES
-mod_ces <- auto.ces(
-  log_cac40_ts, # série temporelle utilisée
-)
-
-# Résumé des paramètres estimés, AIC, erreurs, etc.
-summary(mod_ces)
-
-# Graphiques de diagnostic (décomposition, résidus, QQ-plot, etc.)
-par(mfrow = c(2, 2)) # disposition des 4 graphiques
-plot(mod_ces)
-
-# Prévision sur 12 périodes avec intervalle à 95 %
-prev_ces <- forecast(mod_ces, h = 12, level = 0.95)
-
-# Graphique des prévisions avec intervalle de confiance
-plot(prev_ces)
-```
 
 
 
-
-
-
-log_cac40_ts
-log_cac40_prev
 # 3. Prévision linéaire sur une année 
 
 ## Estimation jusqu'a 2018
@@ -551,7 +522,7 @@ fit_arima_2018 <- auto.arima(log_cac40_ts)
 fit_hw_2018 <- HoltWinters(log_cac40_ts, gamma = FALSE)
 fit_ssarima_2018 <- auto.ssarima(log_cac40_ts, lags = c(1, 12),
                                  orders = list(ar = c(3, 3), i = c(2), ma = c(3, 3)), select = TRUE)
-fit_ces_2018 <- auto.ces(log_cac40_ts)
+
 
 ```
 
@@ -564,7 +535,6 @@ prev_adamarima_2019  <- forecast(fit_adamarima_2018, h = h)
 prev_arima_2019      <- forecast(fit_arima_2018, h = h)
 prev_hw_2019         <- forecast(fit_hw_2018, h = h)
 prev_ssarima_2019    <- forecast(fit_ssarima_2018, h = h)
-prev_ces_2019        <- forecast(fit_ces_2018, h = h)
 plot(prev_adam_2019)
 ```
 
@@ -575,17 +545,16 @@ dates_2019 <- seq(as.Date("2019-01-01"), by = "month", length.out = 12)
 
 # Regrouper toutes les prévisions + la série réalisée
 df_forecast_2019 <- tibble(
-  Date = rep(dates_2019, times = 7),
+  Date = rep(dates_2019, times = 6),
   Valeur = c(
     as.numeric(prev_adam_2019$mean),
     as.numeric(prev_adamarima_2019$mean),
     as.numeric(prev_arima_2019$mean),
     as.numeric(prev_hw_2019$mean),
     as.numeric(prev_ssarima_2019$mean),
-    as.numeric(prev_ces_2019$mean),
     as.numeric(log_cac40_prev)
   ),
-  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES", "Réalisation"), each = 12)
+  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "Réalisation"), each = 12)
 )
 
 # Affichage d'un aperçu
@@ -703,7 +672,7 @@ log_cac40_prev <- as.numeric(log_cac40_prev)
 
 mse_naive <- mean((log_cac40_prev - naive_forecast)^2)
 
-view(mse_naive)
+#view(mse_naive)
 
 # --- R² OOS par rapport à la prévision naïve ---
 r2_adam_naive       <- 1 - (mse_adam / mse_naive)
@@ -868,4 +837,8 @@ ggplot(df_rolling, aes(x = Date)) +
   theme(legend.title = element_blank())
 
 ```
+
+
+
+
 
