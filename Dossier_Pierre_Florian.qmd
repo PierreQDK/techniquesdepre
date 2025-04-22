@@ -87,7 +87,7 @@ La série temporelle mensuelle commence en janvier 2000 et se termine en décemb
 
 ```{r}
 # Classe time series
-log_cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
+cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
 cac40_prev_ts <- ts(data = cac40_prev$cloture, start = c(2000, 01), frequency = 12)
 
 plot.ts(cac40_ts)
@@ -109,7 +109,9 @@ cac40 <- cac40 |>
 
 cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
 
-log_log_cac40_ts <- log(cac40_ts)
+log_cac40_ts <- log(cac40_ts)
+log_cac40_prev <- log(cac40_prev_ts)
+
 ```
 
 
@@ -670,7 +672,8 @@ ggplot(df_forecast_2019, aes(x = Date, y = Valeur, color = Modèle)) +
 cac40_train <- window(log_cac40_ts, end = c(2018, 12))
 
 # Série de test : l’année 2019
-cac40_test  <- window(log_cac40_ts, start = c(2019, 1), end = c(2019, 12))
+cac40_test  <- log_cac40_prev
+
 
 # Ré-estimation des modèles sur la nouvelle série d'apprentissage
 fit_adam <- auto.adam(cac40_train, model = "ZZZ", lags = c(1, 12), select = TRUE)
