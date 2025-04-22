@@ -88,7 +88,7 @@ La série temporelle mensuelle commence en janvier 2000 et se termine en décemb
 ```{r}
 # Classe time series
 cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
-cac40_prev_ts <- ts(data = cac40_prev$cloture, start = c(2000, 01), frequency = 12)
+cac40_prev_ts <- ts(data = cac40_prev$cloture, start = c(2019, 01), frequency = 12)
 
 plot.ts(cac40_ts)
 plot.ts(cac40_prev_ts)
@@ -437,8 +437,8 @@ m <- HoltWinters(log_cac40_ts, gamma = FALSE)
 
 # ---- prévision ----
 
-# Prévision sur un horizon h = 50 avec intervalles de confiance à 80% et 95%
-fit <- forecast(m, h = 50) # ← prévision à 50 périodes
+# Prévision sur un horizon h = 12 avec intervalles de confiance à 80% et 95%
+fit <- forecast(m, h = 12) # ← prévision à 12 périodes
 plot(fit)
 show(fit)
 
@@ -461,7 +461,7 @@ library(smooth)
 # Estimation du modèle ADAM ETS (ZZZ = sélection automatique)
 fit_adam_ets <- auto.adam(
   log_cac40_ts,              # série mensuelle CAC 40
-  model = "ZAZ",         # sélection automatique de la structure ETS
+  model = "ZZN",         # sélection automatique de la structure ETS
   lags = c(1, 12),       # court terme et saisonnalité mensuelle
   select = TRUE          # sélection selon l'AIC
 )
@@ -486,7 +486,7 @@ library(smooth)
 
 fit_adam_ets_arima <- auto.adam(
   log_cac40_ts,                          # série CAC 40 en niveau
-  model = "ZZZ",                     # sélection automatique ETS
+  model = "ZZN",                     # sélection automatique ETS
   lags = c(1, 1, 12),                # lags pour tendance, ARIMA, saisonnalité
   orders = list(
     ar = c(3, 3),                    # ordres AR non saisonnier / saisonnier
@@ -564,24 +564,23 @@ plot(prev_ces)
 
 
 
-
+log_cac40_ts
+log_cac40_prev
 # 3. Prévision linéaire sur une année 
 
 ## Estimation jusqu'a 2018
 ```{r}
-# Définir les séries d'apprentissage et de test
-cac40_train_2018 <- window(log_cac40_ts, end = c(2018, 12))
-cac40_test_2019  <- window(log_cac40_ts, start = c(2019, 1), end = c(2019, 12))
+
 
 # Estimation des modèles sur la base d'apprentissage (jusqu’à 2018)
-fit_adam_2018 <- auto.adam(cac40_train_2018, model = "ZZZ", lags = c(1, 12), select = TRUE)
-fit_adamarima_2018 <- auto.adam(cac40_train_2018, model = "ZZZ", lags = c(1, 1, 12),
-                                orders = list(ar = c(3, 3), i = c(2), ma = c(3, 3)), select = TRUE)
-fit_arima_2018 <- auto.arima(cac40_train_2018)
-fit_hw_2018 <- HoltWinters(cac40_train_2018, gamma = FALSE)
-fit_ssarima_2018 <- auto.ssarima(cac40_train_2018, lags = c(1, 12),
+fit_adam_2018 <- auto.adam(log_cac40_ts, model = "ZZN", lags = c(1, 12), select = TRUE)
+fit_adamarima_2018 <- auto.adam(log_cac40_ts, model = "ZZN", lags = c(1, 1, 12),
+orders = list(ar = c(3, 3), i = c(2), ma = c(3, 3)), select = TRUE)
+fit_arima_2018 <- auto.arima(log_cac40_ts)
+fit_hw_2018 <- HoltWinters(log_cac40_ts, gamma = FALSE)
+fit_ssarima_2018 <- auto.ssarima(log_cac40_ts, lags = c(1, 12),
                                  orders = list(ar = c(3, 3), i = c(2), ma = c(3, 3)), select = TRUE)
-fit_ces_2018 <- auto.ces(cac40_train_2018)
+fit_ces_2018 <- auto.ces(log_cac40_ts)
 
 ```
 
@@ -595,7 +594,7 @@ prev_arima_2019      <- forecast(fit_arima_2018, h = h)
 prev_hw_2019         <- forecast(fit_hw_2018, h = h)
 prev_ssarima_2019    <- forecast(fit_ssarima_2018, h = h)
 prev_ces_2019        <- forecast(fit_ces_2018, h = h)
-
+plot(prev_adam_2019)
 ```
 
 ## Résultats 
@@ -613,7 +612,7 @@ df_forecast_2019 <- tibble(
     as.numeric(prev_hw_2019$mean),
     as.numeric(prev_ssarima_2019$mean),
     as.numeric(prev_ces_2019$mean),
-    as.numeric(cac40_test_2019)
+    as.numeric(log_cac40_prev)
   ),
   Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES", "Réalisation"), each = 12)
 )
@@ -622,6 +621,8 @@ df_forecast_2019 <- tibble(
 print(df_forecast_2019, n = Inf)
 
 View(df_forecast_2019)
+view(log_cac40_ts)
+view(log_cac40_prev)
 
 ```
 
@@ -641,7 +642,6 @@ library(ggplot2)
 ggplot(df_forecast_2019, aes(x = Date, y = Valeur, color = Modèle)) +
   geom_line(size = 1.2) +
   labs(
-    title = "Prévisions mensuelles pour l’année 2019 : comparaison des modèles",
     x = "Date",
     y = "Indice CAC 40"
   ) +
@@ -652,7 +652,6 @@ ggplot(df_forecast_2019, aes(x = Date, y = Valeur, color = Modèle)) +
     "ARIMA" = "#277DA1",
     "Holt-Winters" = "#2A9D8F",
     "SSARIMA" = "#F72585",
-    "CES" = "#FFB703",
     "Réalisation" = "black"
   )) +
   theme(legend.title = element_blank())
@@ -676,14 +675,14 @@ cac40_test  <- log_cac40_prev
 
 
 # Ré-estimation des modèles sur la nouvelle série d'apprentissage
-fit_adam <- auto.adam(cac40_train, model = "ZZZ", lags = c(1, 12), select = TRUE)
-fit_adamarima <- auto.adam(cac40_train, model = "ZZZ", lags = c(1, 1, 12),
+fit_adam <- auto.adam(log_cac40_ts, model = "ZZN", lags = c(1, 12), select = TRUE)
+fit_adamarima <- auto.adam(log_cac40_ts, model = "ZZN", lags = c(1, 1, 12),
                            orders = list(ar = c(3, 3), i = c(2), ma = c(3, 3)), select = TRUE)
-fit_arima <- auto.arima(cac40_train)
-fit_hw <- HoltWinters(cac40_train, gamma = FALSE)
-fit_ssarima <- auto.ssarima(cac40_train, lags = c(1, 12),
+fit_arima <- auto.arima(log_cac40_ts)
+fit_hw <- HoltWinters(log_cac40_ts, gamma = FALSE)
+fit_ssarima <- auto.ssarima(log_cac40_ts, lags = c(1, 12),
                             orders = list(ar = c(3, 3), i = c(2), ma = c(3, 3)), select = TRUE)
-fit_ces <- auto.ces(cac40_train)
+
 
 # Prévision sur 12 mois (année 2019)
 h <- 12
@@ -692,35 +691,34 @@ prev_adamarima  <- forecast(fit_adamarima, h = h)
 prev_arima      <- forecast(fit_arima, h = h)
 prev_hw         <- forecast(fit_hw, h = h)
 prev_ssarima    <- forecast(fit_ssarima, h = h)
-prev_ces        <- forecast(fit_ces, h = h)
 
 
 ```
 
 ```{r}
 # MSE
-mse_adam      <- mean((cac40_test - prev_adam$mean)^2)
-mse_adamarima <- mean((cac40_test - prev_adamarima$mean)^2)
-mse_arima     <- mean((cac40_test - prev_arima$mean)^2)
-mse_hw        <- mean((cac40_test - prev_hw$mean)^2)
-mse_ssarima   <- mean((cac40_test - prev_ssarima$mean)^2)
-mse_ces       <- mean((cac40_test - prev_ces$mean)^2)
+mse_adam      <- mean((log_cac40_prev - prev_adam$mean)^2)
+mse_adamarima <- mean((log_cac40_prev - prev_adamarima$mean)^2)
+mse_arima     <- mean((log_cac40_prev - prev_arima$mean)^2)
+mse_hw        <- mean((log_cac40_prev - prev_hw$mean)^2)
+mse_ssarima   <- mean((log_cac40_prev - prev_ssarima$mean)^2)
+
 
 # R² OOS
 r2_adam       <- 1 - (mse_adam / mse_arima)
 r2_adamarima  <- 1 - (mse_adamarima / mse_arima)
 r2_hw         <- 1 - (mse_hw / mse_arima)
 r2_ssarima    <- 1 - (mse_ssarima / mse_arima)
-r2_ces        <- 1 - (mse_ces / mse_arima)
+
 
 ```
 
 
 ```{r}
 tibble(
-  Modèle       = c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES"),
-  MSE          = c(mse_adam, mse_adamarima, mse_arima, mse_hw, mse_ssarima, mse_ces),
-  R2_OOS       = c(r2_adam, r2_adamarima, NA, r2_hw, r2_ssarima, r2_ces)
+  Modèle       = c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"),
+  MSE          = c(mse_adam, mse_adamarima, mse_arima, mse_hw, mse_ssarima),
+  R2_OOS       = c(r2_adam, r2_adamarima, NA, r2_hw, r2_ssarima)
 )
 ```
 
@@ -728,8 +726,13 @@ tibble(
 
 ```{r}
 # --- Prévision naïve : moyenne de la série d'apprentissage (benchmark alternatif) ---
-naive_forecast <- mean(cac40_train)
-mse_naive <- mean((cac40_test - naive_forecast)^2)
+naive_forecast <- naive(log_cac40_ts,h=12)
+naive_forecast <- as.numeric(naive_forecast$mean)
+log_cac40_prev <- as.numeric(log_cac40_prev)
+
+mse_naive <- mean((log_cac40_prev - naive_forecast)^2)
+
+view(mse_naive)
 
 # --- R² OOS par rapport à la prévision naïve ---
 r2_adam_naive       <- 1 - (mse_adam / mse_naive)
@@ -737,13 +740,14 @@ r2_adamarima_naive  <- 1 - (mse_adamarima / mse_naive)
 r2_arima_naive      <- 1 - (mse_arima / mse_naive)
 r2_hw_naive         <- 1 - (mse_hw / mse_naive)
 r2_ssarima_naive    <- 1 - (mse_ssarima / mse_naive)
-r2_ces_naive        <- 1 - (mse_ces / mse_naive)
+
+
 
 # --- Tableau résumé avec comparaison au benchmark naïf ---
 tibble(
-  Modèle          = c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES"),
-  MSE = c(mse_adam, mse_adamarima, mse_arima, mse_hw, mse_ssarima, mse_ces),
-  R2_OOS_naive    = c(r2_adam_naive, r2_adamarima_naive, r2_arima_naive, r2_hw_naive, r2_ssarima_naive, r2_ces_naive)
+  Modèle          = c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"),
+  MSE = c(mse_adam, mse_adamarima, mse_arima, mse_hw, mse_ssarima),
+  R2_OOS_naive    = c(r2_adam_naive, r2_adamarima_naive, r2_arima_naive, r2_hw_naive, r2_ssarima_naive)
 )
 mse_naive
 
@@ -757,21 +761,20 @@ mean(cac40_train)
 ## 5.3 -  Erreurs de prévision cumulées au carré (CSPE)
 
 ```{r}
-library(tidyverse)
+library(tibble)
 
-# Créer un tibble contenant les erreurs au carré par période
 errors_cumul <- tibble(
-  Mois = rep(1:12, times = 6),
+  Mois = rep(1:12, times = 5),
   Erreur_carrée = c(
-    (cac40_test - prev_adam$mean)^2,
-    (cac40_test - prev_adamarima$mean)^2,
-    (cac40_test - prev_arima$mean)^2,
-    (cac40_test - prev_hw$mean)^2,
-    (cac40_test - prev_ssarima$mean)^2,
-    (cac40_test - prev_ces$mean)^2
+    ( log_cac40_prev- prev_adam$mean)^2,
+    (log_cac40_prev - prev_adamarima$mean)^2,
+    (log_cac40_prev - prev_arima$mean)^2,
+    (log_cac40_prev - prev_hw$mean)^2,
+    (log_cac40_prev - prev_ssarima$mean)^2
   ),
-  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES"), each = 12)
+  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"), each = 12)
 )
+
 
 # Calcul de l’erreur cumulée
 errors_cumul <- errors_cumul %>%
@@ -782,7 +785,6 @@ errors_cumul <- errors_cumul %>%
 ggplot(errors_cumul, aes(x = Mois, y = Erreur_cum, color = Modèle)) +
   geom_line(size = 1.2) +
   labs(
-    title = "Erreurs cumulées de prévision au carré (2018)",
     x = "Mois",
     y = "Erreur cumulée",
     color = "Modèle"
@@ -793,22 +795,21 @@ ggplot(errors_cumul, aes(x = Mois, y = Erreur_cum, color = Modèle)) +
 
 
 
-
+cac40_test  <- log_cac40_prev
 # 6. Test de précision
 
 
 ```{r}
 # Erreurs de prévision
-err_adam       <- cac40_test - prev_adam$mean
-err_adamarima  <- cac40_test - prev_adamarima$mean
-err_arima      <- cac40_test - prev_arima$mean
-err_hw         <- cac40_test - prev_hw$mean
-err_ssarima    <- cac40_test - prev_ssarima$mean
-err_ces        <- cac40_test - prev_ces$mean
+err_adam       <- log_cac40_prev - prev_adam$mean
+err_adamarima  <- log_cac40_prev- prev_adamarima$mean
+err_arima      <- log_cac40_prev - prev_arima$mean
+err_hw         <- log_cac40_prev - prev_hw$mean
+err_ssarima    <- log_cac40_prev - prev_ssarima$mean
 
 # Prévision naïve : moyenne constante
-naive_forecast <- ts(rep(mean(cac40_train), 12), start = c(2018, 1), frequency = 12)
-err_naive      <- cac40_test - naive_forecast
+naive_forecast 
+err_naive      <- log_cac40_prev - naive_forecast
 
 ```
 
@@ -820,8 +821,6 @@ dm_adamarima <- dm.test(err_adamarima, err_naive, h = 1, alternative = "less")
 dm_arima <- dm.test(err_arima, err_naive, h = 1, alternative = "less")
 dm_hw <- dm.test(err_hw, err_naive, h = 1, alternative = "less")
 dm_ssarima <- dm.test(err_ssarima, err_naive, h = 1, alternative = "less")
-dm_ces <- dm.test(err_ces, err_naive, h = 1, alternative = "less")
-
 ```
 
 
@@ -830,14 +829,13 @@ dm_ces <- dm.test(err_ces, err_naive, h = 1, alternative = "less")
 library(tibble)
 
 tibble(
-  Modèle = c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "CES"),
+  Modèle = c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"),
   p_value_DM_naive = c(
     dm_adam$p.value,
     dm_adamarima$p.value,
     dm_arima$p.value,
     dm_hw$p.value,
-    dm_ssarima$p.value,
-    dm_ces$p.value
+    dm_ssarima$p.value
   )
 )
 
@@ -846,123 +844,56 @@ tibble(
 
 # 7. Prévision à 1 pas du meilleur modèle de la question 6
 
+
 ```{r}
-# Prévision glissante sur l’année 2014 avec modèle ADAM ETS
-# Année 2014
 library(smooth)
 library(tibble)
+library(ggplot2)
 
-# Initialisation
-h <- 1  # prévision à un mois
-start_year <- 2014
-start_month <- 1
+# Initialisation du vecteur de prévisions
+pred_rolling_adam <- numeric(12)
 
-# Vecteurs pour stocker les résultats
-preds_adam <- numeric(12)
-real_2014 <- numeric(12)
-
-for (i in 0:11) {
-  # Définir la fin de la fenêtre d'apprentissage
-  train_end <- c(start_year, start_month + i - 1)
+# Boucle sur les 12 mois de 2019
+for (i in 1:12) {
+  # Déterminer la date de fin pour l’échantillon d’estimation
+  end_year <- 2018 + floor((i - 1) / 12)
+  end_month <- (i - 1) %% 12 + 1
+  train_ts <- window(log_cac40_ts, end = c(end_year, end_month))
   
-  # Extraire les données d'entraînement et la vraie valeur du mois à prévoir
-  train_window <- window(log_cac40_ts, end = train_end)
-  test_value <- window(log_cac40_ts, start = c(start_year, start_month + i), end = c(start_year, start_month + i))
+  # Ré-estimation du modèle ADAM.ETS
+  fit <- auto.adam(
+    train_ts,
+    model = "ZZN",
+    lags = c(1, 12),
+    select = TRUE
+  )
   
-  # Estimer le modèle ADAM.ETS sur la fenêtre glissante
-  model_adam <- auto.adam(train_window, model = "ZZZ", lags = c(1, 12), select = TRUE)
-  forecast_adam <- forecast(model_adam, h = h)
-  
-  # Stocker la prévision et la valeur réelle
-  preds_adam[i + 1] <- forecast_adam$mean[1]
-  real_2014[i + 1] <- as.numeric(test_value)
+  # Prévision à 1 mois
+  pred <- forecast(fit, h = 1)
+  pred_rolling_adam[i] <- pred$mean[1]
 }
 
-# Créer le tableau de résultats
-df_glissant_adam <- tibble(
-  Mois = 1:12,
-  Réalisé = real_2014,
-  Prévu = preds_adam,
-  Erreur = real_2014 - preds_adam,
-  Erreur2 = (real_2014 - preds_adam)^2
+# Création du tibble avec les dates de 2019
+dates_rolling <- seq(as.Date("2019-01-01"), by = "month", length.out = 12)
+
+df_rolling <- tibble(
+  Date = dates_rolling,
+  Prévision = pred_rolling_adam,
+  Réalisé = as.numeric(log_cac40_prev)
 )
 
 # Affichage du tableau
-df_glissant_adam
+print(df_rolling)
 
-```
-
-
-```{r}
-# Pour 2019
-
-library(smooth)
-library(tibble)
-
-# Initialisation
-h <- 1  # prévision à un mois
-start_year <- 2019
-start_month <- 1
-
-# Vecteurs pour stocker les résultats
-preds_adam <- numeric(12)
-real_2019 <- numeric(12)
-
-for (i in 0:11) {
-  # Définir la fin de la fenêtre d'apprentissage (mois précédent)
-  train_end <- c(start_year, start_month + i - 1)
-  
-  # Extraire la série d’apprentissage glissante et la vraie valeur suivante
-  train_window <- window(log_cac40_ts, end = train_end)
-  test_value <- window(log_cac40_ts, start = c(start_year, start_month + i), end = c(start_year, start_month + i))
-  
-  # Estimation du modèle ADAM ETS
-  model_adam <- auto.adam(train_window, model = "ZZZ", lags = c(1, 12), select = TRUE)
-  forecast_adam <- forecast(model_adam, h = h)
-  
-  # Stocker la prévision et la valeur observée
-  preds_adam[i + 1] <- forecast_adam$mean[1]
-  real_2019[i + 1] <- as.numeric(test_value)
-}
-
-# Création du tableau de résultats
-df_glissant_adam <- tibble(
-  Mois = 1:12,
-  Réalisé = real_2019,
-  Prévu = preds_adam,
-  Erreur = real_2019 - preds_adam,
-  Erreur2 = (real_2019 - preds_adam)^2
-)
-
-# Affichage
-df_glissant_adam
-
-```
-
-
-
-
-```{r}
-# Graphique des prévisions sur l'année 2018 (voir code précédent pour df_forecast_2018)
-
-ggplot(df_forecast_2018, aes(x = Date, y = Valeur, color = Modèle)) +
-  geom_line(size = 1.1) +
+ggplot(df_rolling, aes(x = Date)) +
+  geom_line(aes(y = Réalisé, color = "Réalisation"), size = 1.2) +
+  geom_line(aes(y = Prévision, color = "Prévision glissante"), size = 1.2) +
   labs(
-    title = "Évolution des prévisions des différents modèles – Année 2018",
-    subtitle = "Comparaison avec la série réalisée (CAC 40)",
-    x = "Date",
-    y = "Indice CAC 40"
+    x = "Date", y = "Valeurs en log",
+    title = "Prévision glissante à 1 mois (ADAM.ETS)"
   ) +
+  scale_color_manual(values = c("Réalisation" = "black", "Prévision glissante" = "blue")) +
   theme_minimal(base_size = 13) +
-  scale_color_manual(values = c(
-    "ADAM.ETS" = "#E76F51",
-    "ADAM.ETS.ARIMA" = "#9D4EDD",
-    "ARIMA" = "#277DA1",
-    "Holt-Winters" = "#2A9D8F",
-    "SSARIMA" = "#F72585",
-    "CES" = "#FFB703",
-    "Réalisation" = "black"
-  )) +
   theme(legend.title = element_blank())
 
 ```
