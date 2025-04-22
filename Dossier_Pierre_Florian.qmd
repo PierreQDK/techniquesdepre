@@ -27,6 +27,7 @@ Choix 2 : Série CVS  ou non saisonnière mensuelle
 library(tidyquant)
 library(tidyverse)
 library(forecast)
+library(RJDemetra)
 ```
 
 # 1. Analyse préliminaire
@@ -37,11 +38,31 @@ library(forecast)
 ### 1. Présentation
 
 ```{r}
-# Importation des données
+# Importation des données pour l'estimation
 
 cac40 <- tq_get(
   "^FCHI",
-  from = "2000-01-01", to = "2019-12-31", periodicity = "monthly"
+  from = "2000-01-01", to = "2018-12-31", periodicity = "monthly"
+) |>
+  mutate(
+    date = date %m+% months(1)
+  ) |>
+  select(
+    date, close
+  ) |>
+  rename(
+    cloture = close
+  )
+
+head(cac40, n = 20)
+```
+
+```{r}
+# Importation des données pour la prévision
+
+cac40_prev <- tq_get(
+  "^FCHI",
+  from = "2019-01-01", to = "2019-12-31", periodicity = "monthly"
 ) |>
   mutate(
     date = date %m+% months(1)
@@ -67,12 +88,32 @@ La série temporelle mensuelle commence en janvier 2000 et se termine en décemb
 ```{r}
 # Classe time series
 cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
+cac40_prev_ts <- ts(data = cac40_prev$cloture, start = c(2000, 01), frequency = 12)
 
 plot.ts(cac40_ts)
+plot.ts(cac40_prev_ts)
 ```
 
 
-### 2. Caractéristiques (saisonnalité ?)
+### 2. log-level
+
+```{r}
+## X13 method
+myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
+summary(myregx13)
+s_transform(myregx13)
+plot(myregx13)
+
+cac40 <- cac40 |> 
+  filter(date != "2002-09-30")
+
+cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
+
+log_cac40_ts <- log(cac40_ts)
+```
+
+
+### 3. Saisonnalité
 
 ```{r}
 # Seasonal dummies
