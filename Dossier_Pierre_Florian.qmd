@@ -18,8 +18,7 @@ format:
     incremental: true
 ---
 
-Choix 2 : Série CVS  ou non saisonnière mensuelle 
-(Possibilité d’utiliser la série du dossier cours « Séries temporelles univariées »)  
+Choix 2 : Série CVS  ou non saisonnière mensuelle
 
 ```{r}
 # Importation des librairies
@@ -30,12 +29,10 @@ library(forecast)
 library(RJDemetra)
 ```
 
+
 # 1. Analyse préliminaire
 
 ## a. Présentation et caractérisation de la série étudiée : source, définition, graphique
-
-
-### 1. Présentation
 
 ```{r}
 # Importation des données pour l'estimation
@@ -77,7 +74,6 @@ cac40_prev <- tq_get(
 head(cac40, n = 20)
 ```
 
-
 La série de données utilisée dans cette analyse provient du site Yahoo Finance (https://finance.yahoo.com/), une plateforme de référence pour les données financières et boursières.
 
 Elle concerne l’indice CAC 40, qui regroupe les 40 plus grandes entreprises françaises cotées à la Bourse de Paris. Cet indice est un indicateur clé de la performance des marchés financiers en France.
@@ -95,24 +91,64 @@ plot.ts(cac40_prev_ts)
 ```
 
 
-### 2. log-level
+
+## b. Détection des points atypiques, détermination du caractère multiplicatif ou additif du schéma et vérification de la saisonnalité
 
 ```{r}
 ## X13 method
-#myregx13 <- regarima_x13(log_cac40_ts, spec ="RG5c")
-#summary(myregx13)
-#s_transform(myregx13)
-#plot(myregx13)
+myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
+summary(myregx13)
+s_transform(myregx13)
+# plot(myregx13)
+```
 
+Le modèle RegARIMA-X13 appliqué à la série cac40_ts repose sur une spécification ARIMA(0,1,1). Cela signifie que la série a été différenciée une fois pour atteindre la stationnarité, et que la dépendance résiduelle est modélisée à l’aide d’un terme de moyenne mobile d’ordre un. Cette structure est adaptée aux séries financières, où les variations mensuelles sont souvent plus stationnaires que les niveaux. Une transformation logarithmique a également été appliquée afin de stabiliser la variance de la série, souvent hétéroscédastique dans le cas d’indices boursiers.
+
+Le modèle est estimé sur la période allant de janvier 2000 à décembre 2018. Les résultats montrent que le paramètre Theta(1) est estimé à 0.14893, avec une erreur standard de 0.06566. Ce paramètre est statistiquement significatif au seuil de 5 %, comme l’indique une p-value de 0.0243. La significativité de ce terme suggère que les chocs passés ont un effet direct sur l’évolution présente de la série, ce qui est cohérent avec le comportement souvent persistant des rendements boursiers.
+
+Le modèle inclut un seul événement exceptionnel : un outlier de type additif (AO) en septembre 2002. Son coefficient, estimé à -0.15439 avec un t-stat de -4.925, est hautement significatif. Ce type de rupture représente une variation brutale et ponctuelle du niveau de la série, sans effet persistant au-delà de la période concernée. Une telle chute peut correspondre à un événement économique ou financier isolé ayant fortement influencé le marché ce mois-là.
+
+Le modèle ne retient ni effet de calendrier (pas de jours ouvrables, pas d’effet Pâques ni d’année bissextile), ni constante. L’absence d’effets calendaires implique que la dynamique de la série ne semble pas influencée de manière systématique par ces composantes, du moins sur la période étudiée. Cela peut s’expliquer par la nature des données financières, où les effets saisonniers sont moins marqués qu’en démographie ou dans les ventes de détail.
+
+Enfin, l’ajustement du modèle est satisfaisant, comme en témoigne l’erreur standard des résidus de 0.04784 et les 224 degrés de liberté. Les critères d’information sont cohérents avec une modélisation parcimonieuse : l’AIC est de 3068, l’AIC corrigé identique, et le BIC corrigé pour la longueur est de -6.032. Ce BIC légèrement négatif peut être interprété comme le résultat d’une vraisemblance relativement élevée combinée à une pénalisation plus forte sur le nombre de paramètres et la taille de l’échantillon. La comparaison des transformations montre que le modèle avec transformation logarithmique est préféré à celui sans transformation, le critère AIC ayant été amélioré de deux points. Cela confirme la pertinence de la transformation log pour améliorer la qualité de l’ajustement.
+
+
+### 1. Suppression du point atypique
+
+```{r}
 cac40 <- cac40 |> 
   filter(date != "2002-09-30")
 
 cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
-
-log_cac40_ts <- log(cac40_ts)
-log_cac40_prev <- log(cac40_prev_ts)
-
 ```
+
+```{r}
+## X13 method
+myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
+summary(myregx13)
+s_transform(myregx13)
+# plot(myregx13)
+```
+
+Aucun autre point atypique détecté
+
+
+### 2. Transformation logarithmique
+
+```{r}
+log_cac40_ts <- log(cac40_ts)
+log_cac40_prev_ts <- log(cac40_prev_ts)
+```
+
+```{r}
+## X13 method
+myregx13 <- regarima_x13(log_cac40_ts, spec ="RG5c")
+summary(myregx13)
+s_transform(myregx13)
+# plot(myregx13)
+```
+
+Plus de transformation
 
 
 ### 3. Saisonnalité
@@ -125,7 +161,7 @@ sd <- seasdum(log_cac40_ts)
 show(sd)
 ```
 
-Le test des variables muettes saisonnières (seasdum) a été appliqué à la série temporelle log_cac40_ts afin de détecter la présence d’une composante saisonnière. La statistique de test obtenue est de 1,47, avec une p-value associée de 0,1445. Cette p-value étant supérieure aux seuils usuels de signification (5 % ou même 10 %), on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. Cela signifie qu’il n’existe pas de preuve statistique suffisante pour affirmer que la série CAC 40 présente une variation régulière et récurrente selon les périodes (mois, trimestres, etc.).
+Le test des variables muettes saisonnières (seasdum) a été appliqué à la série temporelle log_cac40_ts afin de détecter la présence d’une composante saisonnière. La statistique de test obtenue est de 0,98, avec une p-value associée de 0,4649234. Cette p-value étant supérieure aux seuils usuels de signification (5 % ou même 10 %), on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. Cela signifie qu’il n’existe pas de preuve statistique suffisante pour affirmer que la série CAC 40 présente une variation régulière et récurrente selon les périodes (mois, trimestres, etc.).
 
 
 ```{r}
@@ -134,70 +170,8 @@ wot <- combined_test(log_cac40_ts)
 show(wot)
 ```
 
-Le test combiné de type WO (combined_test) a été réalisé pour détecter des effets saisonniers ou calendaire multiples dans la série log_cac40_ts. La statistique de test globale est de 0, avec des p-values respectives de 1, 1 et 0,1039 pour les différents sous-tests. La p-value finale étant légèrement supérieure à 10 %, on ne rejette pas non plus l’hypothèse nulle d’absence d’effet saisonnier ou calendaire. Ainsi, ce test ne met pas en évidence de structure saisonnière marquée ni d’effet lié à des facteurs calendaires dans la série analysée.
+Le test combiné de type WO (Webel-Ollech) a été réalisé sur la série log_cac40_ts afin de détecter d’éventuels effets saisonniers ou calendaires. La statistique de test obtenue est 0, ce qui indique l'absence d’effet saisonnier détecté par le test. Les p-values associées aux différents sous-tests (1, 1, et 0.538) sont toutes bien supérieures au seuil classique de 5 %, ce qui signifie que l’on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. En conclusion, le test ne met pas en évidence de structure saisonnière ou calendaire significative dans la série analysée.
 
-
-## b. Détection des points atypiques. Présenter ces points sous forme de tableau (date, type de point (AO, TC …), t-stat) et trouver des explications économiques de l’apparition des 3 plus importants 
-
-### 1. Première détection
-
-```{r}
-# Détection
-
-library(tsoutliers)
-
-ajustement1 <- tso(log_cac40_ts)
-plot(ajustement1)
-show(ajustement1)
-```
-
-En janvier 2008 (97e observation de la série), le modèle détecte un changement négatif de niveau (LS) important sur le CAC 40, de l’ordre de –726 points. Il s'agit d’un point atypique structurel dans la série.
-Cette chute brutale de niveau subie par le CAC 40 en janvier 2008 correspond très probablement au début de la crise financière mondiale des subprimes. Le marché avait commencé à anticiper l'effondrement des banques, ce qui a provoqué une forte baisse des indices boursiers.
-
-
-```{r}
-# Série corrigée des points atypiques
-
-log_cac40_ts <- ajustement1$yadj
-plot(log_cac40_ts)
-```
-
-
-
-### 2. Deuxième détection
-
-```{r}
-# Détection
-
-ajustement2 <- tso(log_cac40_ts)
-plot(ajustement2)
-show(ajustement2)
-```
-
-En septembre 2001 (21e observation de la série), le modèle détecte un changement transitoire de niveau (TC) significatif sur le CAC 40, d’environ –639 points. Ce type d’anomalie indique un effet temporaire qui se dissipe progressivement dans le temps. Cet événement correspond très probablement aux attentats du 11 septembre 2001, qui ont provoqué une forte chute temporaire des marchés financiers mondiaux, marqués par un choc d'incertitude et de panique.
-
-Un an plus tard, en septembre 2002 (33e observation), le modèle identifie un point atypique (AO) d’environ –517 points. Il s'agit d'un choc ponctuel avec un impact direct et isolé sur le niveau du CAC 40. Cette anomalie pourrait refléter une crise de confiance persistante, alimentée par la prolongation des effets économiques post-11 septembre et par les scandales financiers majeurs, notamment Enron (2001) et WorldCom (2002), qui ont fortement affecté la crédibilité des marchés financiers et contribué à la volatilité de l’époque.
-
-
-```{r}
-# Série corrigée des points atypiques
-
-log_cac40_ts <- ajustement2$yadj
-plot(log_cac40_ts)
-```
-
-
-### 3. Troisième détection
-
-```{r}
-# Détection
-
-ajustement3 <- tso(log_cac40_ts)
-plot(ajustement3)
-show(ajustement3)
-```
-
-Aucun point atypique détecté.
 
 
 ## c. Vérifier la stationnarité de la série I(0) ou I(1)
@@ -401,9 +375,6 @@ diff_log_cac40_ts |>
   )
 
 ```
-
-
-
 
 
 ```{r}
