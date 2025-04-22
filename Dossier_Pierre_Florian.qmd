@@ -87,7 +87,7 @@ La série temporelle mensuelle commence en janvier 2000 et se termine en décemb
 
 ```{r}
 # Classe time series
-cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
+log_cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
 cac40_prev_ts <- ts(data = cac40_prev$cloture, start = c(2000, 01), frequency = 12)
 
 plot.ts(cac40_ts)
@@ -99,7 +99,7 @@ plot.ts(cac40_prev_ts)
 
 ```{r}
 ## X13 method
-#myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
+#myregx13 <- regarima_x13(log_cac40_ts, spec ="RG5c")
 #summary(myregx13)
 #s_transform(myregx13)
 #plot(myregx13)
@@ -109,7 +109,7 @@ cac40 <- cac40 |>
 
 cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
 
-log_cac40_ts <- log(cac40_ts)
+log_log_cac40_ts <- log(cac40_ts)
 ```
 
 
@@ -119,20 +119,20 @@ log_cac40_ts <- log(cac40_ts)
 # Seasonal dummies
 library(TSA)
 library(seastests)
-sd <- seasdum(cac40_ts)
+sd <- seasdum(log_cac40_ts)
 show(sd)
 ```
 
-Le test des variables muettes saisonnières (seasdum) a été appliqué à la série temporelle cac40_ts afin de détecter la présence d’une composante saisonnière. La statistique de test obtenue est de 1,47, avec une p-value associée de 0,1445. Cette p-value étant supérieure aux seuils usuels de signification (5 % ou même 10 %), on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. Cela signifie qu’il n’existe pas de preuve statistique suffisante pour affirmer que la série CAC 40 présente une variation régulière et récurrente selon les périodes (mois, trimestres, etc.).
+Le test des variables muettes saisonnières (seasdum) a été appliqué à la série temporelle log_cac40_ts afin de détecter la présence d’une composante saisonnière. La statistique de test obtenue est de 1,47, avec une p-value associée de 0,1445. Cette p-value étant supérieure aux seuils usuels de signification (5 % ou même 10 %), on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. Cela signifie qu’il n’existe pas de preuve statistique suffisante pour affirmer que la série CAC 40 présente une variation régulière et récurrente selon les périodes (mois, trimestres, etc.).
 
 
 ```{r}
 # Webel-Ollech test - new version of seastests (2021-09)
-wot <- combined_test(cac40_ts)
+wot <- combined_test(log_cac40_ts)
 show(wot)
 ```
 
-Le test combiné de type WO (combined_test) a été réalisé pour détecter des effets saisonniers ou calendaire multiples dans la série cac40_ts. La statistique de test globale est de 0, avec des p-values respectives de 1, 1 et 0,1039 pour les différents sous-tests. La p-value finale étant légèrement supérieure à 10 %, on ne rejette pas non plus l’hypothèse nulle d’absence d’effet saisonnier ou calendaire. Ainsi, ce test ne met pas en évidence de structure saisonnière marquée ni d’effet lié à des facteurs calendaires dans la série analysée.
+Le test combiné de type WO (combined_test) a été réalisé pour détecter des effets saisonniers ou calendaire multiples dans la série log_cac40_ts. La statistique de test globale est de 0, avec des p-values respectives de 1, 1 et 0,1039 pour les différents sous-tests. La p-value finale étant légèrement supérieure à 10 %, on ne rejette pas non plus l’hypothèse nulle d’absence d’effet saisonnier ou calendaire. Ainsi, ce test ne met pas en évidence de structure saisonnière marquée ni d’effet lié à des facteurs calendaires dans la série analysée.
 
 
 ## b. Détection des points atypiques. Présenter ces points sous forme de tableau (date, type de point (AO, TC …), t-stat) et trouver des explications économiques de l’apparition des 3 plus importants 
@@ -144,7 +144,7 @@ Le test combiné de type WO (combined_test) a été réalisé pour détecter des
 
 library(tsoutliers)
 
-ajustement1 <- tso(cac40_ts)
+ajustement1 <- tso(log_cac40_ts)
 plot(ajustement1)
 show(ajustement1)
 ```
@@ -156,8 +156,8 @@ Cette chute brutale de niveau subie par le CAC 40 en janvier 2008 correspond tr�
 ```{r}
 # Série corrigée des points atypiques
 
-cac40_ts <- ajustement1$yadj
-plot(cac40_ts)
+log_cac40_ts <- ajustement1$yadj
+plot(log_cac40_ts)
 ```
 
 
@@ -167,7 +167,7 @@ plot(cac40_ts)
 ```{r}
 # Détection
 
-ajustement2 <- tso(cac40_ts)
+ajustement2 <- tso(log_cac40_ts)
 plot(ajustement2)
 show(ajustement2)
 ```
@@ -180,8 +180,8 @@ Un an plus tard, en septembre 2002 (33e observation), le modèle identifie un po
 ```{r}
 # Série corrigée des points atypiques
 
-cac40_ts <- ajustement2$yadj
-plot(cac40_ts)
+log_cac40_ts <- ajustement2$yadj
+plot(log_cac40_ts)
 ```
 
 
@@ -190,7 +190,7 @@ plot(cac40_ts)
 ```{r}
 # Détection
 
-ajustement3 <- tso(cac40_ts)
+ajustement3 <- tso(log_cac40_ts)
 plot(ajustement3)
 show(ajustement3)
 ```
@@ -211,7 +211,7 @@ library(urca)
 
 # Test de Dickey-Fuller augmenté
 adf_test <- ur.df(
-  cac40_ts, 
+  log_cac40_ts, 
   type = "drift", 
   selectlags = "AIC"
 )
@@ -226,7 +226,7 @@ Le test de Dickey-Fuller augmentée (ADF) permet de tester l'hypothèse nulle se
 ```{r}
 # Test de Philips et Perron
 pp_test <- ur.pp(
-  cac40_ts, 
+  log_cac40_ts, 
   type = "Z-tau", 
   model = "constant", 
   lags = "short"
@@ -242,7 +242,7 @@ Le test de Phillips et Perron (PP) est également utilisé pour tester la prése
 ```{r}
 # Test de KPSS
 kpss_test <- ur.kpss(
-  cac40_ts, 
+  log_cac40_ts, 
   type = "mu"
 )
 summary(kpss_test)
@@ -261,8 +261,8 @@ Les résultats des trois tests unitaires (ADF, PP, et KPSS) indiquent que la sé
 
 ```{r}
 # 1. Différencier la série
-diff_cac40_ts <- diff(cac40_ts)
-ts.plot(diff_cac40_ts)
+diff_log_cac40_ts <- diff(log_cac40_ts)
+ts.plot(diff_log_cac40_ts)
 ```
 
 
@@ -273,7 +273,7 @@ ts.plot(diff_cac40_ts)
 ```{r}
 # Test de Dickey-Fuller augmenté
 adf_test <- ur.df(
-  diff_cac40_ts, 
+  diff_log_cac40_ts, 
   type = "none", 
   selectlags = "AIC"
 )
@@ -288,7 +288,7 @@ Après différenciation de la série temporelle, la statistique du test ADF est 
 ```{r}
 # Test de Philips et Perron
 pp_test <- ur.pp(
-  diff_cac40_ts, 
+  diff_log_cac40_ts, 
   type = "Z-tau", 
   model = "constant", 
   lags = "short"
@@ -304,7 +304,7 @@ Le test PP montre une statistique Z-tau de -14.6639, bien inférieure aux valeur
 ```{r}
 # Test de KPSS
 kpss_test <- ur.kpss(
-  diff_cac40_ts, 
+  diff_log_cac40_ts, 
   type = "mu"
 )
 summary(kpss_test)
@@ -325,12 +325,12 @@ library(gridExtra)
 
 # Corrélogramme
 
-acf_graph1 <- cac40_ts |> 
+acf_graph1 <- log_cac40_ts |> 
   ggAcf() +
   ggtitle("Corrélogramme sur la série en niveau") +
   theme_bw()
 
-acf_graph2 <- diff_cac40_ts |>  
+acf_graph2 <- diff_log_cac40_ts |>  
   ggAcf() +
   ggtitle("Corrélogramme sur la série en différence première") +
   theme_bw()
@@ -348,7 +348,7 @@ Avant la différenciation, la série, non stationnaire (comme une série intégr
 ```{r}
 library(fBasics)
 
-stats <- basicStats(diff_cac40_ts)
+stats <- basicStats(diff_log_cac40_ts)
 show(stats)
 ```
 
@@ -356,7 +356,7 @@ show(stats)
 ### 2. Normalité
 
 ```{r}
-shapiro.test(diff_cac40_ts)
+shapiro.test(diff_log_cac40_ts)
 ```
 
 La p-value de 0.01046, inférieure au seuil de 5 %, indique que l'hypothèse nulle de normalité est rejetée au seuil de risque de 5 %. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série différenciée du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
@@ -366,7 +366,7 @@ La p-value de 0.01046, inférieure au seuil de 5 %, indique que l'hypothèse nul
 
 ```{r}
 boxplot(
-  diff_cac40_ts,
+  diff_log_cac40_ts,
   main = "Boîte à moustaches de la série différenciée",
   ylab = "Valeurs différenciées",
   col = "lightblue"
@@ -378,7 +378,7 @@ Nous devons vérifier si ces valeurs sont réellement atypiques.
 
 
 ```{r}
-diff_cac40_ts |>
+diff_log_cac40_ts |>
   as.numeric() |>
   tibble(valeurs = _) |>
   ggplot(aes(x = "", y = valeurs)) +
@@ -406,7 +406,7 @@ diff_cac40_ts |>
 
 ```{r}
 library(EnvStats)
-rosnerTest(diff_cac40_ts, k = 10, alpha = 0.05)
+rosnerTest(diff_log_cac40_ts, k = 10, alpha = 0.05)
 ```
 
 D'après le test de Rosner, ces valeurs ne sont pas considérées comme atypiques.
@@ -420,7 +420,7 @@ D'après le test de Rosner, ces valeurs ne sont pas considérées comme atypique
 ### 2.1 - Autoarima
 
 ```{r}
-mod_arima <- auto.arima(cac40_ts)
+mod_arima <- auto.arima(log_cac40_ts)
 summary(mod_arima)
 ```
 
@@ -431,7 +431,7 @@ summary(mod_arima)
 # ---- Modélisation ----
 
 # Modèle LED Holt-Winters : lissage exponentiel double (niveau + tendance)
-m <- HoltWinters(cac40_ts, gamma = FALSE)
+m <- HoltWinters(log_cac40_ts, gamma = FALSE)
 
 # ---- prévision ----
 
@@ -458,7 +458,7 @@ library(smooth)
 
 # Estimation du modèle ADAM ETS (ZZZ = sélection automatique)
 fit_adam_ets <- auto.adam(
-  cac40_ts,              # série mensuelle CAC 40
+  log_cac40_ts,              # série mensuelle CAC 40
   model = "ZAZ",         # sélection automatique de la structure ETS
   lags = c(1, 12),       # court terme et saisonnalité mensuelle
   select = TRUE          # sélection selon l'AIC
@@ -483,7 +483,7 @@ prev_adam_ets
 library(smooth)
 
 fit_adam_ets_arima <- auto.adam(
-  cac40_ts,                          # série CAC 40 en niveau
+  log_cac40_ts,                          # série CAC 40 en niveau
   model = "ZZZ",                     # sélection automatique ETS
   lags = c(1, 1, 12),                # lags pour tendance, ARIMA, saisonnalité
   orders = list(
@@ -511,7 +511,7 @@ plot(prev_adam_ets_arima)
 library(smooth)
 
 fitssarima <- auto.ssarima(
-  cac40_ts, # série utilisée
+  log_cac40_ts, # série utilisée
   lags = c(1, 12), # spécifie une structure SARIMA mensuelle
   orders = list(
     ar = c(3, 3), # ordre max AR non saisonnier et saisonnier
@@ -540,7 +540,7 @@ library(smooth)
 
 # Estimation automatique du meilleur modèle CES
 mod_ces <- auto.ces(
-  cac40_ts, # série temporelle utilisée
+  log_cac40_ts, # série temporelle utilisée
 )
 
 # Résumé des paramètres estimés, AIC, erreurs, etc.
@@ -568,8 +568,8 @@ plot(prev_ces)
 ## Estimation jusqu'a 2018
 ```{r}
 # Définir les séries d'apprentissage et de test
-cac40_train_2018 <- window(cac40_ts, end = c(2018, 12))
-cac40_test_2019  <- window(cac40_ts, start = c(2019, 1), end = c(2019, 12))
+cac40_train_2018 <- window(log_cac40_ts, end = c(2018, 12))
+cac40_test_2019  <- window(log_cac40_ts, start = c(2019, 1), end = c(2019, 12))
 
 # Estimation des modèles sur la base d'apprentissage (jusqu’à 2018)
 fit_adam_2018 <- auto.adam(cac40_train_2018, model = "ZZZ", lags = c(1, 12), select = TRUE)
@@ -667,10 +667,10 @@ ggplot(df_forecast_2019, aes(x = Date, y = Valeur, color = Modèle)) +
 
 ```{r}
 # Nouvelle série d'apprentissage : jusqu’à fin 2018
-cac40_train <- window(cac40_ts, end = c(2018, 12))
+cac40_train <- window(log_cac40_ts, end = c(2018, 12))
 
 # Série de test : l’année 2019
-cac40_test  <- window(cac40_ts, start = c(2019, 1), end = c(2019, 12))
+cac40_test  <- window(log_cac40_ts, start = c(2019, 1), end = c(2019, 12))
 
 # Ré-estimation des modèles sur la nouvelle série d'apprentissage
 fit_adam <- auto.adam(cac40_train, model = "ZZZ", lags = c(1, 12), select = TRUE)
@@ -863,8 +863,8 @@ for (i in 0:11) {
   train_end <- c(start_year, start_month + i - 1)
   
   # Extraire les données d'entraînement et la vraie valeur du mois à prévoir
-  train_window <- window(cac40_ts, end = train_end)
-  test_value <- window(cac40_ts, start = c(start_year, start_month + i), end = c(start_year, start_month + i))
+  train_window <- window(log_cac40_ts, end = train_end)
+  test_value <- window(log_cac40_ts, start = c(start_year, start_month + i), end = c(start_year, start_month + i))
   
   # Estimer le modèle ADAM.ETS sur la fenêtre glissante
   model_adam <- auto.adam(train_window, model = "ZZZ", lags = c(1, 12), select = TRUE)
@@ -910,8 +910,8 @@ for (i in 0:11) {
   train_end <- c(start_year, start_month + i - 1)
   
   # Extraire la série d’apprentissage glissante et la vraie valeur suivante
-  train_window <- window(cac40_ts, end = train_end)
-  test_value <- window(cac40_ts, start = c(start_year, start_month + i), end = c(start_year, start_month + i))
+  train_window <- window(log_cac40_ts, end = train_end)
+  test_value <- window(log_cac40_ts, start = c(start_year, start_month + i), end = c(start_year, start_month + i))
   
   # Estimation du modèle ADAM ETS
   model_adam <- auto.adam(train_window, model = "ZZZ", lags = c(1, 12), select = TRUE)
