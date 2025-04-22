@@ -99,10 +99,10 @@ plot.ts(cac40_prev_ts)
 
 ```{r}
 ## X13 method
-myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
-summary(myregx13)
-s_transform(myregx13)
-plot(myregx13)
+#myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
+#summary(myregx13)
+#s_transform(myregx13)
+#plot(myregx13)
 
 cac40 <- cac40 |> 
   filter(date != "2002-09-30")
@@ -118,6 +118,7 @@ log_cac40_ts <- log(cac40_ts)
 ```{r}
 # Seasonal dummies
 library(TSA)
+library(seastests)
 sd <- seasdum(cac40_ts)
 show(sd)
 ```
@@ -962,5 +963,4 @@ ggplot(df_forecast_2018, aes(x = Date, y = Valeur, color = Modèle)) +
   theme(legend.title = element_blank())
 
 ```
-
 
