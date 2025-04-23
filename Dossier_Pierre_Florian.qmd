@@ -18,7 +18,7 @@ format:
     incremental: true
 ---
 
-Choix 2 : Série CVS  ou non saisonnière mensuelle
+Choix 2 : Série CVS ou non saisonnière mensuelle
 
 ```{r}
 # Importation des librairies
@@ -27,6 +27,8 @@ library(tidyquant)
 library(tidyverse)
 library(forecast)
 library(RJDemetra)
+library(tseries)
+library(urca)
 ```
 
 
@@ -83,8 +85,18 @@ La série temporelle mensuelle commence en janvier 2000 et se termine en décemb
 
 ```{r}
 # Classe time series
-cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
-cac40_prev_ts <- ts(data = cac40_prev$cloture, start = c(2019, 01), frequency = 12)
+
+cac40_ts <- ts(
+  data = cac40$cloture, 
+  start = c(2000, 01), 
+  frequency = 12
+)
+
+cac40_prev_ts <- ts(
+  data = cac40_prev$cloture, 
+  start = c(2019, 01), 
+  frequency = 12
+)
 
 plot.ts(cac40_ts)
 plot.ts(cac40_prev_ts)
@@ -96,9 +108,9 @@ plot.ts(cac40_prev_ts)
 
 ```{r}
 ## X13 method
-#myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
-#summary(myregx13)
-#s_transform(myregx13)
+myregx13 <- regarima_x13(cac40_ts, spec = "RG5c")
+summary(myregx13)
+s_transform(myregx13)
 # plot(myregx13)
 ```
 
@@ -116,17 +128,21 @@ Enfin, l’ajustement du modèle est satisfaisant, comme en témoigne l’erreur
 ### 1. Suppression du point atypique
 
 ```{r}
-cac40 <- cac40 |> 
+cac40 <- cac40 |>
   filter(date != "2002-09-30")
 
-cac40_ts <- ts(data = cac40$cloture, start = c(2000, 01), frequency = 12)
+cac40_ts <- ts(
+  data = cac40$cloture, 
+  start = c(2000, 01), 
+  frequency = 12
+)
 ```
 
 ```{r}
 ## X13 method
-#myregx13 <- regarima_x13(cac40_ts, spec ="RG5c")
-#summary(myregx13)
-#s_transform(myregx13)
+myregx13 <- regarima_x13(cac40_ts, spec = "RG5c")
+summary(myregx13)
+s_transform(myregx13)
 # plot(myregx13)
 ```
 
@@ -137,14 +153,14 @@ Aucun autre point atypique détecté
 
 ```{r}
 log_cac40_ts <- log(cac40_ts)
-log_cac40_prev <- log(cac40_prev_ts)
+log_cac40_prev_ts <- log(cac40_prev_ts)
 ```
 
 ```{r}
 ## X13 method
-#myregx13 <- regarima_x13(log_cac40_ts, spec ="RG5c")
-#summary(myregx13)
-#s_transform(myregx13)
+myregx13 <- regarima_x13(log_cac40_ts, spec = "RG5c")
+summary(myregx13)
+s_transform(myregx13)
 # plot(myregx13)
 ```
 
@@ -165,7 +181,7 @@ Le test des variables muettes saisonnières (seasdum) a été appliqué à la s�
 
 
 ```{r}
-# Webel-Ollech test - new version of seastests (2021-09)
+# Webel-Ollech test
 wot <- combined_test(log_cac40_ts)
 show(wot)
 ```
@@ -181,20 +197,16 @@ Le test combiné de type WO (Webel-Ollech) a été réalisé sur la série log_c
 #### 1. Test de Dickey-Fuller Augmenté (ADF)
 
 ```{r}
-# Chargement des bibliothèques nécessaires
-library(tseries)
-library(urca)
-
 # Test de Dickey-Fuller augmenté
 adf_test <- ur.df(
-  log_cac40_ts, 
-  type = "drift", 
+  log_cac40_ts,
+  type = "drift",
   selectlags = "AIC"
 )
 summary(adf_test)
 ```
 
-Le test de Dickey-Fuller augmentée (ADF) permet de tester l'hypothèse nulle selon laquelle la série temporelle possède une racine unitaire, ce qui indique une non-stationnarité. Dans les résultats, le test ADF fournit une statistique de test de -1.4688, qui est supérieure aux valeurs critiques à 1% (-3.46), 5% (-2.88) et 10% (-2.57). Cela indique que nous ne rejetons pas l'hypothèse nulle au seuil de 5%, ce qui suggère que la série temporelle présente une racine unitaire et n'est donc pas stationnaire. En outre, la p-value associée à l’estimation de la pente du modèle (0.143) confirme l’absence de significativité du test, renforçant ainsi l’idée de non-stationnarité.
+Le test de Dickey-Fuller Augmenté (ADF) a été appliqué à la série logarithmique du CAC40 pour évaluer la présence d’une racine unitaire, indicatrice de non-stationnarité. La statistique de test obtenue est de -2.3814, tandis que les valeurs critiques aux seuils de 1%, 5% et 10% sont respectivement -3.46, -2.88 et -2.57. Étant donné que la statistique est supérieure à ces seuils, nous ne pouvons pas rejeter l’hypothèse nulle de non-stationnarité. Ce résultat suggère donc que la série n’est pas stationnaire selon ce test.
 
 
 #### 2. Test de Philips et Perron (PP)
@@ -202,15 +214,15 @@ Le test de Dickey-Fuller augmentée (ADF) permet de tester l'hypothèse nulle se
 ```{r}
 # Test de Philips et Perron
 pp_test <- ur.pp(
-  log_cac40_ts, 
-  type = "Z-tau", 
-  model = "constant", 
-  lags = "short"
+  log_cac40_ts,
+  type = "Z-tau",
+  model = "constant",
+  lags = "long"
 )
 summary(pp_test)
 ```
 
-Le test de Phillips et Perron (PP) est également utilisé pour tester la présence d'une racine unitaire dans une série temporelle, mais il est moins sensible aux problèmes d'hétéroscédasticité. Dans ce cas, la statistique de test Z-tau est -1.3614, ce qui est également supérieur aux valeurs critiques à 1% (-3.4591), 5% (-2.8737) et 10% (-2.5732). Cela indique, tout comme pour le test ADF, que nous ne rejetons pas l'hypothèse nulle et que la série temporelle n'est pas stationnaire. La p-value pour le coefficient de la variable retardée (< 2e-16) est très significative, indiquant que la série temporelle suit un modèle autorégressif, mais cela ne suffit pas à conclure à la stationnarité.
+Le test de Phillips-Perron (PP), qui vise également à détecter une racine unitaire tout en étant plus robuste à l’hétéroscédasticité, a fourni une statistique de test Z-tau de -2.3974. Cette valeur reste supérieure aux valeurs critiques à 1%, 5% et 10%, qui sont respectivement -3.4606, -2.8744 et -2.5736. Ainsi, l’hypothèse nulle de racine unitaire n’est pas rejetée, ce qui confirme le résultat du test ADF et indique également une non-stationnarité de la série.
 
 
 #### 3. Test de KPSS
@@ -218,19 +230,19 @@ Le test de Phillips et Perron (PP) est également utilisé pour tester la prése
 ```{r}
 # Test de KPSS
 kpss_test <- ur.kpss(
-  log_cac40_ts, 
-  type = "mu"
+  log_cac40_ts,
+  type = "mu",
+  lags = "long"
 )
 summary(kpss_test)
 ```
 
-Le test de KPSS (Kwiatkowski-Phillips-Schmidt-Shin) teste l'hypothèse nulle selon laquelle la série est stationnaire. La statistique de test est de 1.1633, qui est bien au-dessus des valeurs critiques pour le niveau de signification de 1%, 5% et 10% (0.739, 0.463, 0.347 respectivement). Cela suggère que nous rejetons l'hypothèse nulle de stationnarité au seuil de 5%, ce qui appuie la conclusion que la série temporelle est non stationnaire. Cette conclusion est cohérente avec les résultats des tests ADF et PP.
+Le test KPSS fonctionne à l’inverse des deux précédents en testant l’hypothèse nulle de stationnarité. Pour notre série, la statistique de test est de 0.1383, nettement inférieure aux valeurs critiques à 10%, 5%, 2.5% et 1% (0.347, 0.463, 0.574 et 0.739 respectivement). Dans ce cas, on ne rejette pas l’hypothèse nulle de stationnarité, ce qui contraste avec les conclusions des tests ADF et PP.
 
 
 #### 4. Conclusion
 
-Les résultats des trois tests unitaires (ADF, PP, et KPSS) indiquent que la série temporelle étudiée, en l'occurrence le CAC40, n'est pas stationnaire. Le test ADF et le test PP, tous deux basés sur l'hypothèse de non-stationnarité, n'ont pas permis de rejeter cette hypothèse, et le test KPSS a montré des preuves contraires à la stationnarité. Ces tests convergent vers la même conclusion : la série présente probablement une racine unitaire, ce qui nécessite probablement une différenciation pour la rendre stationnaire avant d'effectuer toute modélisation.
-
+Les résultats des tests unitaires sont contradictoires. Alors que les tests ADF et PP ne rejettent pas l’hypothèse de non-stationnarité, le test KPSS n’invalide pas l’hypothèse de stationnarité. Cette divergence peut être le signe que la série est proche d’un comportement de racine unitaire ou que certains effets limites (comme un bruit élevé ou un choix de modèle inadapté) faussent les résultats. Face à cette divergence, il est pertinent de différencier la série et de réévaluer sa stationnarité.
 
 
 ### 2. Différenciation de la série
@@ -241,6 +253,8 @@ diff_log_cac40_ts <- diff(log_cac40_ts)
 ts.plot(diff_log_cac40_ts)
 ```
 
+Afin de corriger la non-stationnarité détectée par les tests ADF et PP, nous avons appliqué une différenciation première à la série logarithmique du CAC40. Cette transformation permet de stabiliser la moyenne de la série et d’atténuer les effets de tendance.
+
 
 ### 3. Tester la stationnarité après différenciation
 
@@ -249,14 +263,14 @@ ts.plot(diff_log_cac40_ts)
 ```{r}
 # Test de Dickey-Fuller augmenté
 adf_test <- ur.df(
-  diff_log_cac40_ts, 
-  type = "none", 
+  diff_log_cac40_ts,
+  type = "none",
   selectlags = "AIC"
 )
 summary(adf_test)
 ```
 
-Après différenciation de la série temporelle, la statistique du test ADF est de -11.2216, bien inférieure aux valeurs critiques à 1%, 5% et 10% (-2.58, -1.95, -1.62, respectivement). La p-value associée est inférieure à 2e-16, ce qui permet de rejeter l'hypothèse nulle de racine unitaire. Cela suggère que la série devient stationnaire après différenciation, ce qui est cohérent avec l'idée que la non-stationnarité observée initialement pourrait être résolue par la différenciation.
+Après différenciation, la statistique de test ADF est de -10.3616, ce qui est largement inférieur aux valeurs critiques à 1%, 5% et 10% (-2.58, -1.95, -1.62). Ce résultat très significatif nous permet de rejeter fermement l’hypothèse nulle de non-stationnarité. Ainsi, la série différenciée est stationnaire selon le test ADF.
 
 
 #### 2. Test de Philips et Perron (PP)
@@ -264,15 +278,15 @@ Après différenciation de la série temporelle, la statistique du test ADF est 
 ```{r}
 # Test de Philips et Perron
 pp_test <- ur.pp(
-  diff_log_cac40_ts, 
-  type = "Z-tau", 
-  model = "constant", 
+  diff_log_cac40_ts,
+  type = "Z-tau",
+  model = "constant",
   lags = "short"
 )
 summary(pp_test)
 ```
 
-Le test PP montre une statistique Z-tau de -14.6639, bien inférieure aux valeurs critiques à 1%, 5% et 10% (-3.459, -2.874, -2.573). De plus, la p-value pour le coefficient retardé est de 0.324, ce qui signifie que l'on ne peut pas rejeter l'hypothèse nulle d'absence de racine unitaire uniquement sur cette base. Toutefois, la valeur très faible de la statistique Z-tau permet de conclure que, après différenciation, la série devient stationnaire, appuyant ainsi l'idée que la série est désormais stabilisée et ne présente plus de racine unitaire.
+Le test PP appliqué à la série différenciée donne une statistique Z-tau de -13.3474, une valeur également très inférieure aux seuils critiques de -3.4607, -2.8744 et -2.5736. Cela confirme que l’hypothèse de racine unitaire est nettement rejetée, et que la stationnarité est bien atteinte après transformation.
 
 
 #### 3. Test de KPSS
@@ -280,18 +294,18 @@ Le test PP montre une statistique Z-tau de -14.6639, bien inférieure aux valeur
 ```{r}
 # Test de KPSS
 kpss_test <- ur.kpss(
-  diff_log_cac40_ts, 
+  diff_log_cac40_ts,
   type = "mu"
 )
 summary(kpss_test)
 ```
 
-Le test de KPSS donne une statistique de test de 0.2208, qui est inférieure aux valeurs critiques à 1%, 5% et 10% (0.739, 0.463, 0.347 respectivement). Cela indique que nous ne rejetons pas l'hypothèse nulle de stationnarité de la série après différenciation. Ce résultat renforce les conclusions des tests ADF et PP, montrant que la série est devenue stationnaire après différenciation.
+Le test KPSS retourne une statistique de 0.1189, largement en dessous des seuils critiques à 10%, 5%, 2.5% et 1% (0.347, 0.463, 0.574, 0.739). On ne rejette donc pas l’hypothèse de stationnarité, ce qui vient confirmer les résultats des tests ADF et PP.
 
 
 #### 4. Conclusion
 
-Après la différenciation de la série temporelle, les trois tests unitaires (ADF, PP, et KPSS) confirment que la série devient stationnaire. Le test ADF et le test PP rejettent l'hypothèse de racine unitaire, tandis que le test KPSS ne rejette pas l'hypothèse de stationnarité. Ces résultats indiquent que la différenciation a permis de rendre la série temporelle stationnaire, ce qui est une étape clé avant toute modélisation ou analyse plus approfondie.
+Les trois tests convergent désormais vers une même conclusion : la série devient stationnaire après différenciation. Les tests ADF et PP rejettent l’hypothèse de racine unitaire, tandis que le test KPSS valide la stationnarité. Par conséquent, la transformation appliquée permet de rendre la série adaptée à des analyses économétriques plus avancées.
 
 
 ### 4. Corrélogrammes
@@ -301,12 +315,12 @@ library(gridExtra)
 
 # Corrélogramme
 
-acf_graph1 <- log_cac40_ts |> 
+acf_graph1 <- log_cac40_ts |>
   ggAcf() +
   ggtitle("Corrélogramme sur la série en niveau") +
   theme_bw()
 
-acf_graph2 <- diff_log_cac40_ts |>  
+acf_graph2 <- diff_log_cac40_ts |>
   ggAcf() +
   ggtitle("Corrélogramme sur la série en différence première") +
   theme_bw()
@@ -314,7 +328,7 @@ acf_graph2 <- diff_log_cac40_ts |>
 grid.arrange(acf_graph1, acf_graph2, ncol = 2)
 ```
 
-Avant la différenciation, la série, non stationnaire (comme une série intégrée I(1)), présente une autocorrélation significative sur les premiers retards, ce qui suggère la présence d'une racine unitaire et l'absence de stationnarité. Après la différenciation, l'ACF montre une légère autocorrélation au troisième retard, avec des autocorrélations non significatives pour les autres retards, ce qui indique que la série est devenue stationnaire (I(0)). Ainsi, l'ACF de la série différenciée ne présente plus d'autocorrélations significatives, à l'exception d'une autocorrélation résiduelle éventuelle au troisième retard, suggérant que la différenciation a éliminé la non-stationnarité, rendant la série adaptée à des analyses économétriques.
+Avant la différenciation, la série, non stationnaire (comme une série intégrée I(1)), présente une autocorrélation significative sur les premiers retards, ce qui suggère la présence d'une racine unitaire et l'absence de stationnarité. Après la différenciation, l'ACF montre une légère autocorrélation au quatrième retard, avec des autocorrélations non significatives pour les autres retards, ce qui indique que la série est devenue stationnaire (I(0)). Ainsi, l'ACF de la série différenciée ne présente plus d'autocorrélations significatives, à l'exception d'une autocorrélation résiduelle éventuelle au quatrième retard, suggérant que la différenciation a éliminé la non-stationnarité, rendant la série adaptée à des analyses économétriques.
 
 
 ## d. Statistiques descriptives (moyenne, écart-type, skewness, kurtosis normalité, box-plot …). (cf. Chapitre 3 p38) Commenter
@@ -335,54 +349,44 @@ show(stats)
 shapiro.test(diff_log_cac40_ts)
 ```
 
-La p-value de 0.01046, inférieure au seuil de 5 %, indique que l'hypothèse nulle de normalité est rejetée au seuil de risque de 5 %. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série différenciée du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
+La p-value de 0.003368, inférieure au seuil de 5 %, indique que l'hypothèse nulle de normalité est rejetée au seuil de risque de 5 %. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série différenciée du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
 
 
 ### 3. Boîte à moustache
 
 ```{r}
 boxplot(
-  diff_log_cac40_ts,
-  main = "Boîte à moustaches de la série différenciée",
-  ylab = "Valeurs différenciées",
+  log_cac40_ts,
+  main = "Boîte à moustaches de la série",
+  ylab = "Valeurs",
   col = "lightblue"
 )
 ```
 
-Nous observons plusieurs valeurs potentiellement atypiques.
-Nous devons vérifier si ces valeurs sont réellement atypiques.
-
-
 ```{r}
-diff_log_cac40_ts |>
+log_cac40_ts |>
   as.numeric() |>
   tibble(valeurs = _) |>
-  ggplot(aes(x = "", y = valeurs)) +
+  ggplot(aes(x = valeurs, y = "")) +
   geom_violin(fill = "white", color = "black") +
-  geom_boxplot(width = 0.5, fill = "grey", outlier.color = "red",
-               outlier.size = 2, staplewidth = 0.2) +
-  coord_flip() +
+  geom_boxplot(
+    width = 0.5, fill = "grey", outlier.color = "red",
+    outlier.size = 2, staplewidth = 0.4
+  ) +
   labs(
-    title = "Distribution de la série différenciée du CAC 40",
-    x = "",
-    y = "Valeurs différenciées"
+    title = "Visualisation de la distribution des valeurs de log(CAC 40)",
+    x = "Valeurs",
+    y = "Distribution"
   ) +
   theme_bw() +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+    axis.title.y = element_text(size = 14),
     axis.title.x = element_text(size = 14),
     axis.text.x = element_text(size = 12)
   )
-
 ```
 
-
-```{r}
-library(EnvStats)
-rosnerTest(diff_log_cac40_ts, k = 10, alpha = 0.05)
-```
-
-D'après le test de Rosner, ces valeurs ne sont pas considérées comme atypiques.
 
 
 # 2. Estimation des modèles linéaires
@@ -838,6 +842,67 @@ ggplot(df_rolling, aes(x = Date)) +
 
 ```
 
+
+FLO
+
+```{r}
+library(smooth)
+
+# Initialisation
+estimation <- log_cac40_ts
+
+# Prévisions pour 12 périodes
+prevision <- map_dbl(1:12, function(i) {
+  
+  # Ajout de la dernière valeur observée avant la prévision
+  if (i > 1) {
+    estimation <- ts(
+      c(log_cac40_ts, log_cac40_prev_ts[1:(i - 1)]), 
+      frequency = 12
+    )
+  }
+  
+  # Prévision à un pas
+  forecast(
+    auto.adam(
+      estimation,
+      model = "ZZN",
+      lags = c(1, 12),
+      orders = list(ar = c(3, 3), i = 2, ma = c(3, 3), select = TRUE)
+    ), 
+    h = 1, 
+    level = 0.90
+  )$mean[1]
+})
+
+prevision
+```
+
+
+```{r}
+# Dataframe avec les dates, prévisions et réalisations
+df <- tibble(
+  Date = cac40_prev$date,
+  Prévision = prevision,
+  Réalisation = log(cac40_prev$cloture)
+)
+
+# Graphique
+df |> 
+  ggplot() +
+  aes(x = Date) +
+  geom_line(aes(y = Prévision, color = "Prévision"), size = 1) +
+  geom_line(aes(y = Réalisation, color = "Réalisation"), size = 1) +
+  labs(
+    title = "Comparaison des prévisions et des réalisations",
+    x = "Date",
+    y = "Valeur",
+    color = "Série"
+  ) +
+  scale_color_manual(values = c("Prévision" = "blue", "Réalisation" = "red")) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
 
 
 
