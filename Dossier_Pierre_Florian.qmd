@@ -389,6 +389,8 @@ log_cac40_ts |>
 
 
 
+
+
 # 2. Estimation des modèles linéaires
 
 ## a. Estimer et commenter les paramètres des modèles AR(1), AR(p) et ARIMA(p,d,q) et de la méthode LED Holt-Winters, ADAM ETS, ADAM ETS ARIMA, SSARIMA et CES 
@@ -556,7 +558,7 @@ df_forecast_2019 <- tibble(
     as.numeric(prev_arima_2019$mean),
     as.numeric(prev_hw_2019$mean),
     as.numeric(prev_ssarima_2019$mean),
-    as.numeric(log_cac40_prev)
+    as.numeric(log_cac40_prev_ts)
   ),
   Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA", "Réalisation"), each = 12)
 )
@@ -566,7 +568,7 @@ print(df_forecast_2019, n = Inf)
 
 View(df_forecast_2019)
 view(log_cac40_ts)
-view(log_cac40_prev)
+view(log_cac40_prev_ts)
 
 ```
 
@@ -615,7 +617,7 @@ ggplot(df_forecast_2019, aes(x = Date, y = Valeur, color = Modèle)) +
 cac40_train <- window(log_cac40_ts, end = c(2018, 12))
 
 # Série de test : l’année 2019
-cac40_test  <- log_cac40_prev
+cac40_test  <- log_cac40_prev_ts
 
 
 # Ré-estimation des modèles sur la nouvelle série d'apprentissage
@@ -641,11 +643,11 @@ prev_ssarima    <- forecast(fit_ssarima, h = h)
 
 ```{r}
 # MSE
-mse_adam      <- mean((log_cac40_prev - prev_adam$mean)^2)
-mse_adamarima <- mean((log_cac40_prev - prev_adamarima$mean)^2)
-mse_arima     <- mean((log_cac40_prev - prev_arima$mean)^2)
-mse_hw        <- mean((log_cac40_prev - prev_hw$mean)^2)
-mse_ssarima   <- mean((log_cac40_prev - prev_ssarima$mean)^2)
+mse_adam      <- mean((log_cac40_prev_ts - prev_adam$mean)^2)
+mse_adamarima <- mean((log_cac40_prev_ts - prev_adamarima$mean)^2)
+mse_arima     <- mean((log_cac40_prev_ts - prev_arima$mean)^2)
+mse_hw        <- mean((log_cac40_prev_ts - prev_hw$mean)^2)
+mse_ssarima   <- mean((log_cac40_prev_ts - prev_ssarima$mean)^2)
 
 
 # R² OOS
@@ -672,9 +674,9 @@ tibble(
 # --- Prévision naïve : moyenne de la série d'apprentissage (benchmark alternatif) ---
 naive_forecast <- naive(log_cac40_ts,h=12)
 naive_forecast <- as.numeric(naive_forecast$mean)
-log_cac40_prev <- as.numeric(log_cac40_prev)
+log_cac40_prev_ts <- as.numeric(log_cac40_prev_ts)
 
-mse_naive <- mean((log_cac40_prev - naive_forecast)^2)
+mse_naive <- mean((log_cac40_prev_ts - naive_forecast)^2)
 
 #view(mse_naive)
 
@@ -710,11 +712,11 @@ library(tibble)
 errors_cumul <- tibble(
   Mois = rep(1:12, times = 5),
   Erreur_carrée = c(
-    ( log_cac40_prev- prev_adam$mean)^2,
-    (log_cac40_prev - prev_adamarima$mean)^2,
-    (log_cac40_prev - prev_arima$mean)^2,
-    (log_cac40_prev - prev_hw$mean)^2,
-    (log_cac40_prev - prev_ssarima$mean)^2
+    ( log_cac40_prev_ts- prev_adam$mean)^2,
+    (log_cac40_prev_ts - prev_adamarima$mean)^2,
+    (log_cac40_prev_ts - prev_arima$mean)^2,
+    (log_cac40_prev_ts - prev_hw$mean)^2,
+    (log_cac40_prev_ts - prev_ssarima$mean)^2
   ),
   Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"), each = 12)
 )
@@ -739,21 +741,21 @@ ggplot(errors_cumul, aes(x = Mois, y = Erreur_cum, color = Modèle)) +
 
 
 
-cac40_test  <- log_cac40_prev
+cac40_test  <- log_cac40_prev_ts
 # 6. Test de précision
 
 
 ```{r}
 # Erreurs de prévision
-err_adam       <- log_cac40_prev - prev_adam$mean
-err_adamarima  <- log_cac40_prev- prev_adamarima$mean
-err_arima      <- log_cac40_prev - prev_arima$mean
-err_hw         <- log_cac40_prev - prev_hw$mean
-err_ssarima    <- log_cac40_prev - prev_ssarima$mean
+err_adam       <- log_cac40_prev_ts - prev_adam$mean
+err_adamarima  <- log_cac40_prev_ts- prev_adamarima$mean
+err_arima      <- log_cac40_prev_ts - prev_arima$mean
+err_hw         <- log_cac40_prev_ts - prev_hw$mean
+err_ssarima    <- log_cac40_prev_ts - prev_ssarima$mean
 
 # Prévision naïve : moyenne constante
 naive_forecast 
-err_naive      <- log_cac40_prev - naive_forecast
+err_naive      <- log_cac40_prev_ts - naive_forecast
 
 ```
 
@@ -786,8 +788,11 @@ tibble(
 ```
 
 
-# 7. Prévision à 1 pas du meilleur modèle de la question 6
 
+
+
+
+# 7. Prévision à 1 pas du meilleur modèle de la question 6
 
 ```{r}
 library(smooth)
@@ -823,7 +828,7 @@ dates_rolling <- seq(as.Date("2019-01-01"), by = "month", length.out = 12)
 df_rolling <- tibble(
   Date = dates_rolling,
   Prévision = pred_rolling_adam,
-  Réalisé = as.numeric(log_cac40_prev)
+  Réalisé = as.numeric(log_cac40_prev_ts)
 )
 
 # Affichage du tableau
@@ -857,7 +862,7 @@ prevision <- map_dbl(1:12, function(i) {
   # Ajout de la dernière valeur observée avant la prévision
   if (i > 1) {
     estimation <- ts(
-      c(log_cac40_ts, log_cac40_prev_ts[1:(i - 1)]), 
+      c(log_cac40_ts, log_cac40_prev_ts_ts[1:(i - 1)]), 
       frequency = 12
     )
   }
