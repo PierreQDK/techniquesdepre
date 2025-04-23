@@ -514,6 +514,7 @@ plot(prevssarima)
 
 
 
+
 # 3. Prévision linéaire sur une année 
 
 ## Estimation jusqu'a 2018
@@ -575,6 +576,7 @@ view(log_cac40_prev_ts)
 
 
 
+
 # 4. Représentation graphique des différents modèles 
 
 ```{r}
@@ -603,6 +605,7 @@ ggplot(df_forecast_2019, aes(x = Date, y = Valeur, color = Modèle)) +
   theme(legend.title = element_blank())
 
 ```
+
 
 
 
@@ -738,6 +741,7 @@ ggplot(errors_cumul, aes(x = Mois, y = Erreur_cum, color = Modèle)) +
   theme_minimal(base_size = 13)
 
 ```
+
 
 
 
@@ -885,14 +889,17 @@ prevision
 
 
 ```{r}
-# Dataframe avec les dates, prévisions et réalisations
+# Dataframe avec les dates, les prévisions du modèle et les réalisations
+
 df <- tibble(
   Date = cac40_prev$date,
   Prévision = prevision,
   Réalisation = log(cac40_prev$cloture)
 )
 
+
 # Graphique
+
 df |> 
   ggplot() +
   aes(x = Date) +
