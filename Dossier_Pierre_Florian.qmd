@@ -438,12 +438,17 @@ n <- length(m$fitted[,1])
 # Somme des carrés des résidus
 RSS <- sum(residuals(m)^2)
 
-# Nombre de paramètres estimés (alpha + beta, pas de gamma ici)
+# Nombre de paramètres estimés
 k <- 2
 
-# Calcul manuel de l'AIC
+# AIC manuel
 aic_hw <- n * log(RSS / n) + 2 * k
-cat("AIC du modèle Holt-Winters (niveau + tendance) :", round(aic_hw, 2), "\n")
+
+# AICc manuel
+aicc_hw <- aic_hw + (2 * k * (k + 1)) / (n - k - 1)
+
+cat("AIC du modèle Holt-Winters :", round(aic_hw, 2), "\n")
+cat("AICc du modèle Holt-Winters :", round(aicc_hw, 2), "\n")
 
 ```
 
@@ -472,11 +477,15 @@ plot(prev_adam_ets)
 prev_adam_ets
 
 ```
-#### 2.3.1 - AIC de ADAM ETS 
+#### 2.3.1 - AIC et AICc de ADAM ETS 
 
 ```{r}
 aic_adam <- AIC(fit_adam_ets)
 cat("AIC du modèle ADAM ETS :", round(aic_adam, 2), "\n")
+
+aicc_adam_ets <- AICc(fit_adam_ets)
+cat("AICc du modèle ADAM ETS :", round(aicc_adam_ets, 2), "\n")
+
 ```
 
 ### 2.4 - ADAM ETS-ARIMA (modèle hybride)
@@ -506,10 +515,15 @@ plot(prev_adam_ets_arima)
 
 ```
 
-#### 2.4.1 - AIC de ADAM ETS+ARIMA
+#### 2.4.1 - AIC et AICc de ADAM ETS+ARIMA
 ```{r}
 aic_adam_ets_arima <- AIC(fit_adam_ets_arima)
 cat("AIC du modèle ADAM ETS+ARIMA :", round(aic_adam_ets_arima, 2), "\n")
+
+# AICc du modèle ADAM ETS + ARIMA
+aicc_adam_ets_arima <- AICc(fit_adam_ets_arima)
+cat("AICc du modèle ADAM ETS+ARIMA :", round(aicc_adam_ets_arima, 2), "\n")
+
 ```
 
 ### 2.5 - SSARIMA (State Space ARIMA)
