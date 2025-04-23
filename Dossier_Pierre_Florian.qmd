@@ -426,6 +426,25 @@ show(prevf)
 # Informations sur le modèle ajusté
 mod <- fit$model
 show(mod)
+
+
+```
+#### 2.2.1 - AIC de Holtwinters
+
+```{r}
+# Nombre d'observations
+n <- length(m$fitted[,1])
+
+# Somme des carrés des résidus
+RSS <- sum(residuals(m)^2)
+
+# Nombre de paramètres estimés (alpha + beta, pas de gamma ici)
+k <- 2
+
+# Calcul manuel de l'AIC
+aic_hw <- n * log(RSS / n) + 2 * k
+cat("AIC du modèle Holt-Winters (niveau + tendance) :", round(aic_hw, 2), "\n")
+
 ```
 
 
@@ -453,7 +472,12 @@ plot(prev_adam_ets)
 prev_adam_ets
 
 ```
+#### 2.3.1 - AIC de ADAM ETS 
 
+```{r}
+aic_adam <- AIC(fit_adam_ets)
+cat("AIC du modèle ADAM ETS :", round(aic_adam, 2), "\n")
+```
 
 ### 2.4 - ADAM ETS-ARIMA (modèle hybride)
 
@@ -482,6 +506,11 @@ plot(prev_adam_ets_arima)
 
 ```
 
+#### 2.4.1 - AIC de ADAM ETS+ARIMA
+```{r}
+aic_adam_ets_arima <- AIC(fit_adam_ets_arima)
+cat("AIC du modèle ADAM ETS+ARIMA :", round(aic_adam_ets_arima, 2), "\n")
+```
 
 ### 2.5 - SSARIMA (State Space ARIMA)
 
@@ -915,7 +944,3 @@ df |>
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
 ```
-
-
-
-
