@@ -25,11 +25,13 @@ Choix 2 : Série CVS ou non saisonnière mensuelle
 
 library(tidyquant)
 library(tidyverse)
+library(tsoutliers)
 library(forecast)
 library(RJDemetra)
 library(tseries)
 library(urca)
 library(smooth)
+library(gridExtra)
 ```
 
 
@@ -108,114 +110,96 @@ plot.ts(cac40_prev_ts)
 
 ## b. Détection des points atypiques, détermination du caractère multiplicatif ou additif du schéma et vérification de la saisonnalité
 
+### 1. Détection des points atypiques et structure de la série
+
+```{r}
+# Méthode X13 avec seuil de détection des outliers fixé à 4
+# regx13_1 <- regarima_x13(
+#   cac40_ts, 
+#   spec = "RG5c"
+# )
+```
+
 ```{r}
 # Méthode X13
 
-regx13_1 <- regarima_x13(
-  cac40_ts, 
-  spec = "RG5c"
+specification_1 <- regarima_spec_x13(
+  spec = "RG5c",
+  outlier.usedefcv = FALSE,
+  outlier.cv = 3  # Seuil de détection des outliers fixé à 3
+                  # pour augmenter la sensibilité de l'identification
 )
+
+regx13_1 <- regarima(cac40_ts, spec = specification_1)
 summary(regx13_1)
 
 s_transform(regx13_1)
 # plot(regx13_1)
 ```
 
-Le modèle RegARIMA-X13 appliqué à la série cac40_ts repose sur une spécification ARIMA(0,1,1). Cela signifie que la série a été différenciée une fois pour atteindre la stationnarité, et que la dépendance résiduelle est modélisée à l’aide d’un terme de moyenne mobile d’ordre un. Cette structure est adaptée aux séries financières, où les variations mensuelles sont souvent plus stationnaires que les niveaux. Une transformation logarithmique a également été appliquée afin de stabiliser la variance de la série, souvent hétéroscédastique dans le cas d’indices boursiers.
-
-Le modèle est estimé sur la période allant de janvier 2000 à décembre 2018. Les résultats montrent que le paramètre Theta(1) est estimé à 0.14893, avec une erreur standard de 0.06566. Ce paramètre est statistiquement significatif au seuil de 5 %, comme l’indique une p-value de 0.0243. La significativité de ce terme suggère que les chocs passés ont un effet direct sur l’évolution présente de la série, ce qui est cohérent avec le comportement souvent persistant des rendements boursiers.
-
-Le modèle inclut un seul événement exceptionnel : un outlier de type additif (AO) en septembre 2002. Son coefficient, estimé à -0.15439 avec un t-stat de -4.925, est hautement significatif. Ce type de rupture représente une variation brutale et ponctuelle du niveau de la série, sans effet persistant au-delà de la période concernée. Une telle chute peut correspondre à un événement économique ou financier isolé ayant fortement influencé le marché ce mois-là.
-
-Le modèle ne retient ni effet de calendrier (pas de jours ouvrables, pas d’effet Pâques ni d’année bissextile), ni constante. L’absence d’effets calendaires implique que la dynamique de la série ne semble pas influencée de manière systématique par ces composantes, du moins sur la période étudiée. Cela peut s’expliquer par la nature des données financières, où les effets saisonniers sont moins marqués qu’en démographie ou dans les ventes de détail.
-
-Enfin, l’ajustement du modèle est satisfaisant, comme en témoigne l’erreur standard des résidus de 0.04784 et les 224 degrés de liberté. Les critères d’information sont cohérents avec une modélisation parcimonieuse : l’AIC est de 3068, l’AIC corrigé identique, et le BIC corrigé pour la longueur est de -6.032. Ce BIC légèrement négatif peut être interprété comme le résultat d’une vraisemblance relativement élevée combinée à une pénalisation plus forte sur le nombre de paramètres et la taille de l’échantillon. La comparaison des transformations montre que le modèle avec transformation logarithmique est préféré à celui sans transformation, le critère AIC ayant été amélioré de deux points. Cela confirme la pertinence de la transformation log pour améliorer la qualité de l’ajustement.
+La série a nécessité une transformation logarithmique, indiquant une structure multiplicative.
+Trois points atypiques significatifs au seuil de 1 % ont été détectés : un AO en septembre 2002, un TC en septembre 2001 et un LS en janvier 2008.
 
 
 ```{r}
-# série ajustée du point atypique
+# Série corrigée des points atypiques et transformée en logarithme.
 
 ajustement <- regx13_1[["model"]][["effects"]]
 log_cac40_ts <- ajustement[, "y_lin"]
 log_cac40_prev_ts <- log(cac40_prev_ts)
+
+par(mfrow = c(1, 2))
+plot(log_cac40_ts, main = "Série corrigée")
+plot(log(cac40_ts), main = "Série initiale transformée en logarithme")
+par(mfrow = c(1, 1))
 ```
 
 ```{r}
 # Méthode X13
 
-regx13_2 <- regarima_x13(
-  log_cac40_ts, 
-  spec = "RG5c"
+specification_2 <- regarima_spec_x13(
+  spec = "RG5c",
+  outlier.usedefcv = FALSE,
+  outlier.cv = 3
 )
+
+regx13_2 <- regarima(log_cac40_ts, spec = specification_2)
 summary(regx13_2)
 
 s_transform(regx13_2)
 # plot(regx13_2)
 ```
 
-Plus de point atypique
+Aucun point atypique n'a été détecté et aucune transformation logarithmique n'a été nécessaire. Nous conservons donc la série corrigée log_cac40_ts.
 
-# --------------------------------
 
 ```{r}
-specification_1 <- regarima_spec_x13(
-  spec = "RG5c",
-  outlier.usedefcv = FALSE, 
-  outlier.cv = 2.576 # seuil de significativité de 1 %
-)
+# Autre méthode de détection des points atypiques
 
-regx13_1 <- summary(regarima(cac40_ts, spec = specification_1))
-regx13_1
+# Première détection
+tso(cac40_ts)
+ajustement_tso_1 <- tso(cac40_ts)
+serie_ajustee_tso_1 <- ajustement_tso_1$yadj
+
+# Seconde détection
+tso(serie_ajustee_tso_1)
+ajustement_tso_2 <- tso(serie_ajustee_tso_1)
+serie_ajustee_tso_2 <- ajustement_tso_2$yadj
+
+# Troisième détection
+tso(serie_ajustee_tso_2)
+
+par(mfrow = c(1, 2))
+plot(serie_ajustee_tso_2)
+plot(cac40_ts)
+par(mfrow = c(1, 2))
 ```
 
-```{r}
-# Points atypiques significatifs à 0,1 %
-
-outliers <- as_tibble(
-  regx13_1[["coefficients"]][["regression"]], 
-  rownames = "outliers") |> 
-  filter(`Pr(>|t|)` < 0.001)
-
-outliers
-```
-
-```{r}
-# Extraction des types de points atypiques et des dates
-outliers <- outliers |>
-  mutate(
-    points_atypiques = str_extract(outliers, "^[A-Za-z]+"),
-    dates = str_extract(outliers, "\\d{1,2}-\\d{4}") |> 
-      my() |> 
-      format("%Y-%m")
-  )
-
-# Récupération des dates exactes
-outliers$cac40_dates <- str_subset(
-  cac40$date, 
-  paste(outliers$dates, collapse = "|")
-)
-
-outliers
-```
-
-```{r}
-specification_2 <- regarima_spec_x13(
-  spec = "RG5c",
-  usrdef.outliersEnabled = TRUE,
-  usrdef.outliersType = outliers$points_atypiques,
-  usrdef.outliersDate = outliers$cac40_dates
-)
-
-regx13_2 <- summary(regarima(cac40_ts, spec = specification_2))
-regx13_2
-```
+On retrouve les mêmes points atypiques.
 
 
 
-
-
-
-### 3. Saisonnalité
+### 2. Saisonnalité
 
 ```{r}
 # Seasonal dummies
@@ -225,7 +209,7 @@ sd <- seasdum(log_cac40_ts)
 show(sd)
 ```
 
-Le test des variables muettes saisonnières (seasdum) a été appliqué à la série temporelle log_cac40_ts afin de détecter la présence d’une composante saisonnière. La statistique de test obtenue est de 0,98, avec une p-value associée de 0,4649234. Cette p-value étant supérieure aux seuils usuels de signification (5 % ou même 10 %), on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. Cela signifie qu’il n’existe pas de preuve statistique suffisante pour affirmer que la série CAC 40 présente une variation régulière et récurrente selon les périodes (mois, trimestres, etc.).
+Le test des variables muettes saisonnières (seasdum) a été appliqué à la série temporelle log_cac40_ts afin de détecter la présence d’une composante saisonnière. La statistique de test obtenue est de 1.23, avec une p-value associée de 0.2691775. Cette p-value étant supérieure aux seuils usuels de signification (5 % ou même 10 %), on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. Cela signifie qu’il n’existe pas de preuve statistique suffisante pour affirmer que la série CAC 40 présente une variation régulière et récurrente selon les périodes.
 
 
 ```{r}
@@ -234,7 +218,7 @@ wot <- combined_test(log_cac40_ts)
 show(wot)
 ```
 
-Le test combiné de type WO (Webel-Ollech) a été réalisé sur la série log_cac40_ts afin de détecter d’éventuels effets saisonniers ou calendaires. La statistique de test obtenue est 0, ce qui indique l'absence d’effet saisonnier détecté par le test. Les p-values associées aux différents sous-tests (1, 1, et 0.538) sont toutes bien supérieures au seuil classique de 5 %, ce qui signifie que l’on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. En conclusion, le test ne met pas en évidence de structure saisonnière ou calendaire significative dans la série analysée.
+Le test combiné de type WO (Webel-Ollech) a été réalisé sur la série log_cac40_ts afin de détecter d’éventuels effets saisonniers ou calendaires. La statistique de test obtenue est 0, ce qui indique l'absence d’effet saisonnier détecté par le test. Les p-values associées aux différents sous-tests (1, 1 et 0.3373112) sont toutes bien supérieures au seuil classique de 5 %, ce qui signifie que l’on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. En conclusion, le test ne met pas en évidence de structure saisonnière ou calendaire significative dans la série analysée.
 
 
 
@@ -255,7 +239,7 @@ adf_test <- ur.df(
 summary(adf_test)
 ```
 
-Le test de Dickey-Fuller Augmenté (ADF) a été appliqué à la série logarithmique du CAC40 pour évaluer la présence d’une racine unitaire, indicatrice de non-stationnarité. La statistique de test obtenue est de -2.3866, tandis que les valeurs critiques aux seuils de 1%, 5% et 10% sont respectivement -3.46, -2.88 et -2.57. Étant donné que la statistique est supérieure à ces seuils, nous ne pouvons pas rejeter l’hypothèse nulle de non-stationnarité. Ce résultat suggère donc que la série n’est pas stationnaire selon ce test.
+Le test de Dickey-Fuller Augmenté (ADF) a été appliqué à la série logarithmique du CAC40 pour évaluer la présence d’une racine unitaire, indicatrice de non-stationnarité. La statistique de test obtenue est de -2.1351, tandis que les valeurs critiques aux seuils de 1%, 5% et 10% sont respectivement -3.46, -2.88 et -2.57. Étant donné que la statistique est supérieure à ces seuils, nous ne pouvons pas rejeter l’hypothèse nulle de non-stationnarité. Ce résultat suggère donc que la série n’est pas stationnaire selon ce test.
 
 
 #### 2. Test de Philips et Perron (PP)
@@ -271,7 +255,7 @@ pp_test <- ur.pp(
 summary(pp_test)
 ```
 
-Le test de Phillips-Perron (PP), qui vise également à détecter une racine unitaire tout en étant plus robuste à l’hétéroscédasticité, a fourni une statistique de test Z-tau de -2.3959. Cette valeur reste supérieure aux valeurs critiques à 1%, 5% et 10%, qui sont respectivement -3.4606, -2.8744 et -2.5736. Ainsi, l’hypothèse nulle de racine unitaire n’est pas rejetée, ce qui confirme le résultat du test ADF et indique également une non-stationnarité de la série.
+Le test de Phillips-Perron (PP), qui vise également à détecter une racine unitaire tout en étant plus robuste à l’hétéroscédasticité, a fourni une statistique de test Z-tau de -2.1828. Cette valeur reste supérieure aux valeurs critiques à 1%, 5% et 10%, qui sont respectivement -3.4605, -2.8743 et -2.5735. Ainsi, l’hypothèse nulle de racine unitaire n’est pas rejetée, ce qui confirme le résultat du test ADF et indique également une non-stationnarité de la série.
 
 
 #### 3. Test de KPSS
@@ -286,7 +270,7 @@ kpss_test <- ur.kpss(
 summary(kpss_test)
 ```
 
-Le test KPSS fonctionne à l’inverse des deux précédents en testant l’hypothèse nulle de stationnarité. Pour notre série, la statistique de test est de 0.1374, nettement inférieure aux valeurs critiques à 10%, 5%, 2.5% et 1% (0.347, 0.463, 0.574 et 0.739 respectivement). Dans ce cas, on ne rejette pas l’hypothèse nulle de stationnarité, ce qui contraste avec les conclusions des tests ADF et PP.
+Le test KPSS fonctionne à l’inverse des deux précédents en testant l’hypothèse nulle de stationnarité. Pour notre série, la statistique de test est de 0.3004, inférieure aux valeurs critiques à 10%, 5%, 2.5% et 1% (0.347, 0.463, 0.574 et 0.739 respectivement). Dans ce cas, on ne rejette pas l’hypothèse nulle de stationnarité, ce qui contraste avec les conclusions des tests ADF et PP.
 
 
 #### 4. Conclusion
@@ -319,7 +303,7 @@ adf_test <- ur.df(
 summary(adf_test)
 ```
 
-Après différenciation, la statistique de test ADF est de -10.524, ce qui est largement inférieur aux valeurs critiques à 1%, 5% et 10% (-2.58, -1.95, -1.62). Ce résultat très significatif nous permet de rejeter fermement l’hypothèse nulle de non-stationnarité. Ainsi, la série différenciée est stationnaire selon le test ADF.
+Après différenciation, la statistique de test ADF est de -10.759, ce qui est largement inférieur aux valeurs critiques à 1%, 5% et 10% (-2.58, -1.95, -1.62). Ce résultat très significatif nous permet de rejeter fermement l’hypothèse nulle de non-stationnarité. Ainsi, la série différenciée est stationnaire selon le test ADF.
 
 
 #### 2. Test de Philips et Perron (PP)
@@ -335,7 +319,7 @@ pp_test <- ur.pp(
 summary(pp_test)
 ```
 
-Le test PP appliqué à la série différenciée donne une statistique Z-tau de -13.2906, une valeur également très inférieure aux seuils critiques de -3.4607, -2.8744 et -2.5736. Cela confirme que l’hypothèse de racine unitaire est nettement rejetée, et que la stationnarité est bien atteinte après transformation.
+Le test PP appliqué à la série différenciée donne une statistique Z-tau de -13.1645, une valeur également très inférieure aux seuils critiques de -3.4606, -2.8744 et -2.5736. Cela confirme que l’hypothèse de racine unitaire est nettement rejetée, et que la stationnarité est bien atteinte après transformation.
 
 
 #### 3. Test de KPSS
@@ -349,7 +333,7 @@ kpss_test <- ur.kpss(
 summary(kpss_test)
 ```
 
-Le test KPSS retourne une statistique de 0.1209, largement en dessous des seuils critiques à 10%, 5%, 2.5% et 1% (0.347, 0.463, 0.574, 0.739). On ne rejette donc pas l’hypothèse de stationnarité, ce qui vient confirmer les résultats des tests ADF et PP.
+Le test KPSS retourne une statistique de 0.1174, largement en dessous des seuils critiques à 10%, 5%, 2.5% et 1% (0.347, 0.463, 0.574, 0.739). On ne rejette donc pas l’hypothèse de stationnarité, ce qui vient confirmer les résultats des tests ADF et PP.
 
 
 #### 4. Conclusion
@@ -357,11 +341,10 @@ Le test KPSS retourne une statistique de 0.1209, largement en dessous des seuils
 Les trois tests convergent désormais vers une même conclusion : la série devient stationnaire après différenciation. Les tests ADF et PP rejettent l’hypothèse de racine unitaire, tandis que le test KPSS valide la stationnarité. Par conséquent, la transformation appliquée permet de rendre la série adaptée à des analyses économétriques plus avancées.
 
 
+
 ### 4. Corrélogrammes
 
 ```{r}
-library(gridExtra)
-
 # Corrélogramme
 
 acf_graph1 <- log_cac40_ts |>
@@ -377,12 +360,12 @@ acf_graph2 <- diff_log_cac40_ts |>
 grid.arrange(acf_graph1, acf_graph2, ncol = 2)
 ```
 
-Avant la différenciation, la série, non stationnaire (comme une série intégrée I(1)), présente une autocorrélation significative sur les premiers retards, ce qui suggère la présence d'une racine unitaire et l'absence de stationnarité. Après la différenciation, l'ACF montre une légère autocorrélation au quatrième retard, avec des autocorrélations non significatives pour les autres retards, ce qui indique que la série est devenue stationnaire (I(0)). Ainsi, l'ACF de la série différenciée ne présente plus d'autocorrélations significatives, à l'exception d'une autocorrélation résiduelle éventuelle au quatrième retard, suggérant que la différenciation a éliminé la non-stationnarité, rendant la série adaptée à des analyses économétriques.
+Avant différenciation, la série, non stationnaire (intégrée d'ordre 1, I(1)), présente des autocorrélations significatives aux premiers retards, ce qui suggère la présence d'une racine unitaire et confirme l'absence de stationnarité. Après différenciation, l'ACF révèle une légère autocorrélation aux premier et troisième retards, tandis que les autres retards présentent des autocorrélations non significatives, indiquant que la série est devenue stationnaire (I(0)). Ainsi, bien que quelques autocorrélations résiduelles subsistent aux premiers retards, l'absence d'autocorrélations significatives aux retards plus élevés confirme que la différenciation a permis d'éliminer la non-stationnarité, rendant la série appropriée pour des analyses économétriques.
 
 
 
 
-## d. Statistiques descriptives (moyenne, écart-type, skewness, kurtosis normalité, box-plot …). (cf. Chapitre 3 p38) Commenter
+## d. Statistiques descriptives (moyenne, écart-type, skewness, kurtosis normalité, box-plot …).
 
 ### 1. Statistiques
 
@@ -394,13 +377,15 @@ show(stats)
 ```
 
 
+
 ### 2. Normalité
 
 ```{r}
 shapiro.test(log_cac40_ts)
 ```
 
-La p-value de 0.01201, inférieure au seuil de 5 %, indique que l'hypothèse nulle de normalité est rejetée au seuil de risque de 5 %. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série différenciée du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
+La p-value de 4.259e-05, très inférieure au seuil de 5 %, indique que l'hypothèse nulle de normalité est rejetée au seuil de risque de 5 %. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
+
 
 
 ### 3. Boîte à moustache
@@ -491,7 +476,7 @@ modele_hw <- HoltWinters(
   gamma = FALSE
 ) # LED : niveau + tendance (sans saisonnalité)
 
-summary(modele_hw)
+modele_hw
 
 # Graphique de la série et des valeurs ajustées
 plot(modele_hw)
@@ -533,10 +518,18 @@ cat("AICc du modèle Holt-Winters :", round(aicc_hw, 2), "\n")
 
 ```{r}
 modele_adam_ets <- auto.adam(
-  log_cac40_ts,              # série mensuelle CAC 40
-  model = "ZZN",         # sélection automatique de la structure ETS
-  lags = c(1, 12),       # court terme et saisonnalité mensuelle
-  select = TRUE          # sélection selon l'AIC
+  log_cac40_ts,                     # Série du CAC 40 en log-niveau
+  model = "ZZN",                    # Modèle ETS-ARIMA combiné
+                                    # sans saisonnalité pour ETS
+  lags = c(1, 12),                  # Lags pour ETS et ARIMA
+                                    # (1) Lag pour le niveau/tendance d'ETS
+                                    # (12) Lags saisonniers pour ARIMA
+  orders = list(                    # Pas de modèle ARIMA dans le modèle global
+    ar = c(0),
+    i  = c(0),
+    ma = c(0)
+  ),
+  select = TRUE                     # Sélection du modèle global optimal
 )
 
 summary(modele_adam_ets)
@@ -571,24 +564,25 @@ cat("AICc du modèle ADAM ETS :", round(aicc_adam_ets, 2), "\n")
 
 ```{r}
 modele_adam_ets_arima <- auto.adam(
-  log_cac40_ts,                     # CAC 40 en log-niveau
-  model = "ZZN",                    # sélection automatique,
-                                    # sans composante saisonnière dans la partie ETS
-  lags = c(1, 1, 12),               # (1) niveau/tendance ETS,
-                                    # (2) ARIMA non-saisonnier,
-                                    # (3) ARIMA saisonnier (mensuel)
+  log_cac40_ts,                     # Série du CAC 40 en log-niveau
+  model = "ZZN",                    # Modèle ETS-ARIMA combiné
+                                    # sans saisonnalité pour ETS
+  lags = c(1, 12),                  # Lags pour ETS et ARIMA
+                                    # (1) Lag pour le niveau/tendance d'ETS
+                                    # (12) Lags saisonniers pour ARIMA
   orders = list(
-    ar = c(3, 3),                   # ordre autorégressif maximum :
-                                    # 3 pour la partie non saisonnière,
-                                    # 3 pour la partie saisonnière
-    i  = c(2),                      # différenciation d’ordre 2 maximum pour stationnariser la série
-    ma = c(3, 3)                    # ordre de moyenne mobile maximum :
-                                    # 3 pour la partie non saisonnière,
-                                    # 3 pour la partie saisonnière
+    ar = c(3, 3),                   # (3) Ordre maximal pour AR non saisonnier
+                                    # (3) Ordre maximal pour AR saisonnier
+    i  = c(2, 1),                   # (2) Ordre maximal pour différenciation non saisonnière
+                                    # (1) Ordre maximal pour différenciation saisonnière
+    ma = c(3, 3),                   # (3) Ordre maximal pour MA non saisonnier
+                                    # (3) Ordre maximal pour MA saisonnier
+    select = TRUE                   # Sélection automatique du sous_modèle optimal
   ),
-  select = TRUE                     # sélection automatique du meilleur sous-modèle (AICc/BIC)
+  select = TRUE,                    # Sélection automatique du modèle global optimal
+  bounds = "admissible"             # Bornes admissibles appliquées aux paramètres
+                                    # pour assurer la validité du modèle
 )
-
 
 summary(modele_adam_ets_arima)
 
@@ -622,15 +616,20 @@ cat("AICc du modèle ADAM ETS+ARIMA :", round(aicc_adam_ets_arima, 2), "\n")
 
 ```{r}
 modele_ssarima <- auto.ssarima(
-  log_cac40_ts,                      # CAC 40 en log-niveau
-  lags = c(1, 12),                   # (1) niveau/tendance pour SARIMA, (12) saisonnalité mensuelle
+  log_cac40_ts,                     # Série du CAC 40 en log-niveau
+  lags = c(1, 12),                  # (1) Lag pour le niveau/tendance
+                                    # (12) Lag pour la saisonnalité mensuelle
   orders = list(
-    ar = c(3, 3),                    # (3) ordre maximum pour AR non saisonnier et saisonnier
-    i = c(2),                        # (2) différenciation d'ordre 2 maximum pour stationnariser la série
-    ma = c(3, 3)                     # (3) ordre maximum pour MA non saisonnier et saisonnier
-  ),
-  select = TRUE                       # sélection automatique du meilleur sous-modèle (AICc/BIC)
+    ar = c(3, 3),                   # (3) Ordre maximal pour AR non saisonnier
+                                    # (3) Ordre maximal pour AR saisonnier
+    i  = c(2, 1),                   # (2) Ordre maximal pour différenciation non saisonnière
+                                    # (1) Ordre maximal pour différenciation saisonnière
+    ma = c(3, 3),                   # (3) Ordre maximal pour MA non saisonnier
+                                    # (3) Ordre maximal pour MA saisonnier
+    select = TRUE                   # Sélection automatique du meilleur sous-modèle (critères AICc/BIC)
+  )
 )
+
 
 summary(modele_ssarima)
 
@@ -642,8 +641,6 @@ plot4(modele_ssarima)
 # Graphique des valeurs ajustées
 plot(modele_ssarima$fitted)
 ```
-
-
 
 
 
@@ -903,19 +900,23 @@ df_mse <- tibble(
   ADAM_ETS_ARIMA = mean((log_cac40_prev_ts - prev_adam_ets_arima)^2),
   SSARIMA = mean((log_cac40_prev_ts - prev_ssarima)^2)
 )
+
 df_mse
 
 
 # R2 OOS par rapport à la prévision naïve
 df_r2 <- tibble(
   Critere = "R2_OOS",
+  Naive = NA,
   ARIMA = 1 - (df_mse$ARIMA / df_mse$Naive),
   Holt_Winters = 1 - (df_mse$Holt_Winters / df_mse$Naive),
   ADAM_ETS = 1 - (df_mse$ADAM_ETS / df_mse$Naive),
   ADAM_ETS_ARIMA = 1 - (df_mse$ADAM_ETS_ARIMA / df_mse$Naive),
   SSARIMA = 1 - (df_mse$SSARIMA / df_mse$Naive)
 )
+
 df_r2
+
 
 # Tableau récapitulatif des performances de prévision : MSE et R2 OOS
 df_mse_r2 <- bind_rows(df_mse, df_r2)
@@ -928,35 +929,83 @@ df_mse_r2
 ## 5.3 -  Erreurs de prévision cumulées au carré (CSPE)
 
 ```{r}
-library(tibble)
-
-errors_cumul <- tibble(
-  Mois = rep(1:12, times = 5),
-  Erreur_carrée = c(
-    (log_cac40_prev_ts- prev_adam$mean)^2,
-    (log_cac40_prev_ts - prev_adamarima$mean)^2,
-    (log_cac40_prev_ts - prev_arima$mean)^2,
-    (log_cac40_prev_ts - prev_hw$mean)^2,
-    (log_cac40_prev_ts - prev_ssarima$mean)^2
-  ),
-  Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"), each = 12)
+# CSPE
+df_cspe <- tibble(
+  Critere = "CSPE",
+  Naive = sum((log_cac40_prev_ts - prev_naive)^2),
+  ARIMA = sum((log_cac40_prev_ts - prev_arima)^2),
+  Holt_Winters = sum((log_cac40_prev_ts - prev_hw)^2),
+  ADAM_ETS = sum((log_cac40_prev_ts - prev_adam_ets)^2),
+  ADAM_ETS_ARIMA = sum((log_cac40_prev_ts - prev_adam_ets_arima)^2),
+  SSARIMA = sum((log_cac40_prev_ts - prev_ssarima)^2)
 )
 
+df_cspe
 
-# Calcul de l’erreur cumulée
-errors_cumul <- errors_cumul %>%
-  group_by(Modèle) %>%
-  mutate(Erreur_cum = cumsum(Erreur_carrée))
 
-# Graphique des erreurs cumulées
-ggplot(errors_cumul, aes(x = Mois, y = Erreur_cum, color = Modèle)) +
+# Vecteur couleurs pour les différents modèles
+couleurs_modeles <- c(
+  "Naive" = "#F4A300",
+  "ARIMA" = "#277DA1",
+  "Holt_Winters" = "#2A9D8F",
+  "ADAM_ETS" = "#E76F51",
+  "ADAM_ETS_ARIMA" = "#9D4EDD",
+  "SSARIMA" = "#F72585"
+)
+
+# Graphique de l'erreur quadratique cumulée pour chaque modèle
+df_cspe |> 
+  pivot_longer(
+    cols = -Critere, 
+    names_to = "Modeles", 
+    values_to = "CSPE"
+  ) |> 
+  ggplot() +
+  aes(
+    x = Modeles, 
+    y = CSPE, 
+    color = Modeles
+  ) +
   geom_line(size = 1.2) +
   labs(
-    x = "Mois",
-    y = "Erreur cumulée",
-    color = "Modèle"
+    x = "Modèles", 
+    y = "Erreur quadratique cumulée (CSPE)"
   ) +
-  theme_minimal(base_size = 13)
+  scale_color_manual(values = couleurs_modeles) +
+  theme_bw(base_size = 13) +
+  theme(legend.title = element_blank())
+```
+cumul non pris en compte
+
+```{r}
+errors_cumul <- tibble(
+   Mois = rep(1:12, times = 5),
+   Erreur_carrée = c(
+     ( log_cac40_prev_ts- prev_adam$mean)^2,
+     (log_cac40_prev_ts- prev_adam$mean)^2,
+     (log_cac40_prev_ts - prev_adamarima$mean)^2,
+     (log_cac40_prev_ts - prev_arima$mean)^2,
+     (log_cac40_prev_ts - prev_hw$mean)^2,
+     (log_cac40_prev_ts - prev_ssarima$mean)^2
+   ),
+   Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"), each = 12)
+ )
+ 
+ 
+ # Calcul de l’erreur cumulée
+ errors_cumul <- errors_cumul %>%
+   group_by(Modèle) %>%
+   mutate(Erreur_cum = cumsum(Erreur_carrée))
+ 
+ # Graphique des erreurs cumulées
+ ggplot(errors_cumul, aes(x = Mois, y = Erreur_cum, color = Modèle)) +
+   geom_line(size = 1.2) +
+   labs(
+     x = "Mois",
+     y = "Erreur cumulée",
+     color = "Modèle"
+   ) +
+   theme_minimal(base_size = 13)
 
 ```
 
