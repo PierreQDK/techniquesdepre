@@ -521,9 +521,9 @@ modele_adam_ets <- auto.adam(
   log_cac40_ts,                     # Série du CAC 40 en log-niveau
   model = "ZZN",                    # Modèle ETS-ARIMA combiné
                                     # sans saisonnalité pour ETS
-  lags = c(1),                      # Lags pour ETS
-                                    # (1) Lag pour le niveau/tendance d'ETS
-                                    # (12) Lags saisonniers pour ARIMA
+  lags = c(1, 12),                  # Lags pour ETS
+                                    # (1) Lag pour le niveau/tendance
+                                    # (12) Lags saisonniers
   orders = list(                    # Pas de modèle ARIMA dans le modèle global
     ar = c(0),
     i  = c(0),
