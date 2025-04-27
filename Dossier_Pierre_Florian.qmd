@@ -802,7 +802,9 @@ show(prev_ssarima)
 # Prévisions et série réalisée
 
 df_previsions_2019 <- tibble(
-  Date           = cac40_prev$date,
+  Date           = month(
+    cac40_prev$date, label = TRUE, locale = "fr_FR.UTF-8"
+  ),
   ARIMA          = as.numeric(prev_arima),
   Holt_Winters   = as.numeric(prev_hw),
   ADAM_ETS       = as.numeric(prev_adam_ets),
@@ -824,7 +826,7 @@ df_previsions_2019
 
 ```{r}
 # Vecteur couleurs
-couleurs_valeurs <- c(
+couleurs_types <- c(
   "ARIMA" = "#277DA1",
   "ADAM_ETS" = "#E76F51",
   "ADAM_ETS_ARIMA" = "#9D4EDD",
@@ -837,21 +839,22 @@ couleurs_valeurs <- c(
 df_previsions_2019 |> 
   pivot_longer(
     cols = -Date, 
-    names_to = "Valeurs", 
+    names_to = "Type", 
     values_to = "Prediction"
   ) |> 
   ggplot() +
   aes(
     x = Date, 
     y = Prediction, 
-    color = Valeurs
+    color = Type,
+    group = Type
   ) +
   geom_line(size = 1.2) +
   labs(
     x = "Date", 
     y = "Valeur prédite"
   ) +
-  scale_color_manual(values = couleurs_valeurs) +
+  scale_color_manual(values = couleurs_types) +
   theme_bw(base_size = 13) +
   theme(legend.title = element_blank())
 ```
@@ -892,7 +895,9 @@ show(prev_naive)
 ```{r}
 # Erreurs de prévision
 df_erreurs_prevision <- tibble(
-  Date           = cac40_prev$date,
+  Date           = month(
+    cac40_prev$date, label = TRUE, locale = "fr_FR.UTF-8"
+  ),
   Naive          = prev_naive - log_cac40_prev_ts,
   ARIMA          = prev_arima  - log_cac40_prev_ts,
   Holt_Winters   = prev_hw  - log_cac40_prev_ts,
@@ -959,7 +964,9 @@ df_mse_r2
 ```{r}
 # Erreurs de prévision au carré (SPE)
 df_spe <- tibble(
-  Date           = cac40_prev$date,
+  Date           = month(
+    cac40_prev$date, label = TRUE, locale = "fr_FR.UTF-8"
+  ),
   Naive          = df_erreurs_prevision$Naive^2,
   ARIMA          = df_erreurs_prevision$ARIMA^2,
   Holt_Winters   = df_erreurs_prevision$Holt_Winters^2,
@@ -1000,14 +1007,15 @@ couleurs_modeles <- c(
 df_cspe |> 
   pivot_longer(
     cols = -Date, 
-    names_to = "modeles", 
-    values_to = "cspe"
+    names_to = "Modele", 
+    values_to = "CSPE"
   ) |> 
   ggplot() +
   aes(
     x = Date, 
-    y = cspe, 
-    color = modeles
+    y = CSPE, 
+    color = Modele,
+    group = Modele
   ) +
   geom_line(size = 1.2) +
   labs(
@@ -1018,7 +1026,6 @@ df_cspe |>
   theme_bw(base_size = 13) +
   theme(legend.title = element_blank())
 ```
-
 
 
 
@@ -1089,104 +1096,83 @@ df_dm_pvalue
 
 # 7. Prévision à 1 pas du meilleur modèle de la question 6
 
-```{r}
-estim <- 1277
-
-h <- 12
-format <- matrix(nrow=h, ncol=1)
-
-
-
-for(i in 1:h)
-{
-
-yy <- y[i:(estim-1+i),1]
-
-fittbats = tbats(yy)
-prevtbats <- forecast(fittbats,1)
-forc = as.numeric(fc$mean)
-format[i,1] <- forc
-
-}
-
-format
-
-```
+## 1. Prévision
 
 ```{r}
-# Toutes les observations
-serie <- ts(
+# Série complète avec toutes les observations
+cac40_complet <- ts(
   c(log_cac40_ts, log_cac40_prev_ts), 
   frequency = 12
 )
 
-# Estimation : 228 mois
-estimation <- 228
+# Nombre de mois pour l'estimation
+nb_estim <- 228
 
-# Prévision : 12 mois
-h <- 12
+# Nombre de mois pour la prévision
+nb_prev <- 12
 
-# 
-format <- matrix(
-  nrow = prevision, 
-  ncol = 1
-)
-
-# Prévisions pour 12 périodes
-prevision <- map_dbl(1:1, function(i) {
+# Prévisions à 1 pas pour les 12 mois
+df_previsions_2019_un_pas <- map(1:nb_prev, function(i) {
   
-  serie_realisations <- serie[i:(estimation-1+i)]
+  # Sélection des observations pour l'estimation
+  cac40_realisation <- cac40_complet[i:(nb_estim-1+i)]
   
-  modele <- auto.adam(
-    serie_realisations,
-    model = "ZZN",
-    lags = c(1, 12),
-    orders = list(
-      ar = c(3, 3),
-      i  = c(2, 1),
-      ma = c(3, 3),
-      select = TRUE
-    ),
-    select = TRUE,
-    bounds = "admissible"
+  # Modèle ETS(ANN) + SARIMA(0,1,1)[12]
+  cac40_modele <- adam(
+    cac40_realisation,
+    model = "ANN", 
+    orders = list(seasonal = c(0,1,1)),
+    seasonal = 12
   )
-
-  # Prévision à un pas
-  forecast(
-    modele, 
+  
+  # Prévision à 1 pas
+  cac40_prevision <- forecast(
+    cac40_modele, 
     h = 1, 
     level = 0.90
-  )$mean[1]
-})
+  )
+  
+  # Résultats
+  tibble(
+    Date = month(cac40_prev$date, label = TRUE, locale = "fr_FR.UTF-8")[i], 
+    Prévision = cac40_prevision$mean, 
+    Réalisation = log(cac40_prev$cloture)[i]
+  )
+}) |> 
+  bind_rows()
 
-prevision
+df_previsions_2019_un_pas
 ```
 
+
+
+
+## 2. Graphique
 
 ```{r}
-# Dataframe avec les dates, les prévisions du modèle et les réalisations
-
-df <- tibble(
-  Date = cac40_prev$date,
-  Prévision = prevision,
-  Réalisation = log(cac40_prev$cloture)
-)
-
-
-# Graphique
-
-df |> 
+df_previsions_2019_un_pas |> 
+  pivot_longer(
+    cols = -Date, 
+    names_to = "Type", 
+    values_to = "Prediction"
+  ) |> 
   ggplot() +
-  aes(x = Date) +
-  geom_line(aes(y = Prévision, color = "Prévision"), size = 1) +
-  geom_line(aes(y = Réalisation, color = "Réalisation"), size = 1) +
-  labs(
-    title = "Comparaison des prévisions et des réalisations",
-    x = "Date",
-    y = "Valeur",
-    color = "Série"
+  aes(
+    x = Date, 
+    y = Prediction, 
+    color = Type,
+    group = Type
   ) +
-  scale_color_manual(values = c("Prévision" = "blue", "Réalisation" = "red")) +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5))
+  geom_line(size = 1.2) +
+  labs(
+    x = "Date", 
+    y = "Valeur prédite"
+  ) +
+  scale_color_manual(
+    values = c("Prévision" = "red", "Réalisation" = "black")
+  ) +
+  theme_bw(base_size = 13) +
+  theme(legend.title = element_blank())
 ```
+
+
