@@ -802,13 +802,13 @@ show(prev_ssarima)
 # Prévisions et série réalisée
 
 df_previsions_2019 <- tibble(
-  Date = cac40_prev$date,
-  ARIMA = as.numeric(prev_arima),
-  Holt_Winters = as.numeric(prev_hw),
-  ADAM_ETS = as.numeric(prev_adam_ets),
+  Date           = cac40_prev$date,
+  ARIMA          = as.numeric(prev_arima),
+  Holt_Winters   = as.numeric(prev_hw),
+  ADAM_ETS       = as.numeric(prev_adam_ets),
   ADAM_ETS_ARIMA = as.numeric(prev_adam_ets_arima),
-  SSARIMA = as.numeric(prev_ssarima),
-  Realisation = as.numeric(log_cac40_prev_ts)
+  SSARIMA        = as.numeric(prev_ssarima),
+  Realisation    = as.numeric(log_cac40_prev_ts)
 )
 
 df_previsions_2019
@@ -887,18 +887,33 @@ show(prev_naive)
 
 
 
-## 5.2 -  MSE et R2oo
+## 5.2.  MSE et R2oo
+
+```{r}
+# Erreurs de prévision
+df_erreurs_prevision <- tibble(
+  Date = cac40_prev$date,
+  Naive = log_cac40_prev_ts - prev_naive,
+  ARIMA = log_cac40_prev_ts - prev_arima,
+  Holt_Winters = log_cac40_prev_ts - prev_hw,
+  ADAM_ETS = log_cac40_prev_ts - prev_adam_ets,
+  ADAM_ETS_ARIMA = log_cac40_prev_ts - prev_adam_ets_arima,
+  SSARIMA = log_cac40_prev_ts - prev_ssarima
+)
+
+df_erreurs_prevision
+```
 
 ```{r}
 # MSE
 df_mse <- tibble(
-  Critere = "MSE",
-  Naive = mean((log_cac40_prev_ts - prev_naive)^2),
-  ARIMA = mean((log_cac40_prev_ts - prev_arima)^2),
-  Holt_Winters = mean((log_cac40_prev_ts - prev_hw)^2),
-  ADAM_ETS = mean((log_cac40_prev_ts - prev_adam_ets)^2),
-  ADAM_ETS_ARIMA = mean((log_cac40_prev_ts - prev_adam_ets_arima)^2),
-  SSARIMA = mean((log_cac40_prev_ts - prev_ssarima)^2)
+  Critere        = "MSE",
+  Naive          = mean(df_erreurs_prevision$Naive^2),
+  ARIMA          = mean(df_erreurs_prevision$ARIMA^2),
+  Holt_Winters   = mean(df_erreurs_prevision$Holt_Winters^2),
+  ADAM_ETS       = mean(df_erreurs_prevision$ADAM_ETS^2),
+  ADAM_ETS_ARIMA = mean(df_erreurs_prevision$ADAM_ETS_ARIMA^2),
+  SSARIMA        = mean(df_erreurs_prevision$SSARIMA^2)
 )
 
 df_mse
@@ -906,13 +921,13 @@ df_mse
 
 # R2 OOS par rapport à la prévision naïve
 df_r2 <- tibble(
-  Critere = "R2_OOS",
-  Naive = NA,
-  ARIMA = 1 - (df_mse$ARIMA / df_mse$Naive),
-  Holt_Winters = 1 - (df_mse$Holt_Winters / df_mse$Naive),
-  ADAM_ETS = 1 - (df_mse$ADAM_ETS / df_mse$Naive),
+  Critere        = "R2_OOS",
+  Naive          = NA,
+  ARIMA          = 1 - (df_mse$ARIMA / df_mse$Naive),
+  Holt_Winters   = 1 - (df_mse$Holt_Winters / df_mse$Naive),
+  ADAM_ETS       = 1 - (df_mse$ADAM_ETS / df_mse$Naive),
   ADAM_ETS_ARIMA = 1 - (df_mse$ADAM_ETS_ARIMA / df_mse$Naive),
-  SSARIMA = 1 - (df_mse$SSARIMA / df_mse$Naive)
+  SSARIMA        = 1 - (df_mse$SSARIMA / df_mse$Naive)
 )
 
 df_r2
@@ -926,12 +941,24 @@ df_mse_r2
 
 
 
-## 5.3 -  Erreurs de prévision cumulées au carré (CSPE)
+## 5.3.  Erreurs de prévision cumulées au carré (CSPE)
+
+```{r}
+df_previsions_2019 <- tibble(
+  Date           = cac40_prev$date,
+  ARIMA          = as.numeric(prev_arima),
+  Holt_Winters   = as.numeric(prev_hw),
+  ADAM_ETS       = as.numeric(prev_adam_ets),
+  ADAM_ETS_ARIMA = as.numeric(prev_adam_ets_arima),
+  SSARIMA        = as.numeric(prev_ssarima),
+  Realisation    = as.numeric(log_cac40_prev_ts)
+)
+```
 
 ```{r}
 # CSPE
 df_cspe <- tibble(
-  Critere = "CSPE",
+  Date           = cac40_prev$date,
   Naive = sum((log_cac40_prev_ts - prev_naive)^2),
   ARIMA = sum((log_cac40_prev_ts - prev_arima)^2),
   Holt_Winters = sum((log_cac40_prev_ts - prev_hw)^2),
@@ -979,18 +1006,18 @@ cumul non pris en compte
 
 ```{r}
 errors_cumul <- tibble(
-   Mois = rep(1:12, times = 5),
+   Mois = rep(1:12, times = 6),
    Erreur_carrée = c(
-     ( log_cac40_prev_ts- prev_adam$mean)^2,
-     (log_cac40_prev_ts- prev_adam$mean)^2,
-     (log_cac40_prev_ts - prev_adamarima$mean)^2,
-     (log_cac40_prev_ts - prev_arima$mean)^2,
-     (log_cac40_prev_ts - prev_hw$mean)^2,
-     (log_cac40_prev_ts - prev_ssarima$mean)^2
+     (log_cac40_prev_ts- prev_naive)^2,
+     (log_cac40_prev_ts- prev_adam_ets)^2,
+     (log_cac40_prev_ts - prev_adam_ets_arima)^2,
+     (log_cac40_prev_ts - prev_arima)^2,
+     (log_cac40_prev_ts - prev_hw)^2,
+     (log_cac40_prev_ts - prev_ssarima)^2
    ),
-   Modèle = rep(c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"), each = 12)
- )
- 
+   Modèle = rep(c("Naive", "ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"), each = 12)
+)
+errors_cumul
  
  # Calcul de l’erreur cumulée
  errors_cumul <- errors_cumul %>%
