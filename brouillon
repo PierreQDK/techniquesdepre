@@ -18,7 +18,6 @@ format:
     incremental: true
 ---
 
-
 Choix 2 : Série CVS ou non saisonnière mensuelle
 
 ```{r}
@@ -36,13 +35,14 @@ library(gridExtra)
 ```
 
 
+
 # 1. Analyse préliminaire
 
 ```{r}
 log_cac40_ts <- readRDS("/Users/pierrequintindekercadio/Desktop/log_cac40_ts.rds"
 )
 
-view(log_cac40_ts)
+#view(log_cac40_ts)
 ```
 
 ```{r}
@@ -84,6 +84,8 @@ log_cac40_prev_ts <- log(cac40_prev_ts)
 
 plot.ts(log_cac40_prev_ts)
 ```
+
+
 
 
 
@@ -385,9 +387,9 @@ modele_adam_ets <- auto.adam(
   log_cac40_ts,                     # Série du CAC 40 en log-niveau
   model = "ZZN",                    # Modèle ETS-ARIMA combiné
                                     # sans saisonnalité pour ETS
-  lags = c(1, 12),                  # Lags pour ETS et ARIMA
-                                    # (1) Lag pour le niveau/tendance d'ETS
-                                    # (12) Lags saisonniers pour ARIMA
+  lags = c(1, 12),                  # Lags pour ETS
+                                    # (1) Lag pour le niveau/tendance
+                                    # (12) Lags saisonniers
   orders = list(                    # Pas de modèle ARIMA dans le modèle global
     ar = c(0),
     i  = c(0),
@@ -612,7 +614,7 @@ show(prev_adam_ets)
 
 ```{r}
 # Prévision du modèle ADAM ETS-ARIMA
-
+set.seed(99)
 # Prévision à 12 mois avec intervalle de confiance à 90 %
 prevision_adam_ets_arima <- forecast(
   modele_adam_ets_arima, 
@@ -666,7 +668,9 @@ show(prev_ssarima)
 # Prévisions et série réalisée
 
 df_previsions_2019 <- tibble(
-  Date           = cac40_prev$date,
+  Date           = month(
+    cac40_prev$date, label = TRUE, locale = "fr_FR.UTF-8"
+  ),
   ARIMA          = as.numeric(prev_arima),
   Holt_Winters   = as.numeric(prev_hw),
   ADAM_ETS       = as.numeric(prev_adam_ets),
@@ -688,7 +692,7 @@ df_previsions_2019
 
 ```{r}
 # Vecteur couleurs
-couleurs_valeurs <- c(
+couleurs_types <- c(
   "ARIMA" = "#277DA1",
   "ADAM_ETS" = "#E76F51",
   "ADAM_ETS_ARIMA" = "#9D4EDD",
@@ -701,21 +705,22 @@ couleurs_valeurs <- c(
 df_previsions_2019 |> 
   pivot_longer(
     cols = -Date, 
-    names_to = "Valeurs", 
+    names_to = "Type", 
     values_to = "Prediction"
   ) |> 
   ggplot() +
   aes(
     x = Date, 
     y = Prediction, 
-    color = Valeurs
+    color = Type,
+    group = Type
   ) +
   geom_line(size = 1.2) +
   labs(
     x = "Date", 
     y = "Valeur prédite"
   ) +
-  scale_color_manual(values = couleurs_valeurs) +
+  scale_color_manual(values = couleurs_types) +
   theme_bw(base_size = 13) +
   theme(legend.title = element_blank())
 ```
@@ -756,13 +761,15 @@ show(prev_naive)
 ```{r}
 # Erreurs de prévision
 df_erreurs_prevision <- tibble(
-  Date = cac40_prev$date,
-  Naive = log_cac40_prev_ts - prev_naive,
-  ARIMA = log_cac40_prev_ts - prev_arima,
-  Holt_Winters = log_cac40_prev_ts - prev_hw,
-  ADAM_ETS = log_cac40_prev_ts - prev_adam_ets,
-  ADAM_ETS_ARIMA = log_cac40_prev_ts - prev_adam_ets_arima,
-  SSARIMA = log_cac40_prev_ts - prev_ssarima
+  Date           = month(
+    cac40_prev$date, label = TRUE, locale = "fr_FR.UTF-8"
+  ),
+  Naive          = prev_naive - log_cac40_prev_ts,
+  ARIMA          = prev_arima  - log_cac40_prev_ts,
+  Holt_Winters   = prev_hw  - log_cac40_prev_ts,
+  ADAM_ETS       = prev_adam_ets  - log_cac40_prev_ts,
+  ADAM_ETS_ARIMA = prev_adam_ets_arima  - log_cac40_prev_ts,
+  SSARIMA        = prev_ssarima - log_cac40_prev_ts
 )
 
 df_erreurs_prevision
@@ -780,12 +787,10 @@ df_mse <- tibble(
   SSARIMA        = mean(df_erreurs_prevision$SSARIMA^2)
 )
 
-df_mse
-
 
 # R2 OOS par rapport à la prévision naïve
-df_r2 <- tibble(
-  Critere        = "R2_OOS",
+df_r2_modele_naif <- tibble(
+  Critere        = "R2_OOS modèle naïf",
   Naive          = NA,
   ARIMA          = 1 - (df_mse$ARIMA / df_mse$Naive),
   Holt_Winters   = 1 - (df_mse$Holt_Winters / df_mse$Naive),
@@ -794,11 +799,26 @@ df_r2 <- tibble(
   SSARIMA        = 1 - (df_mse$SSARIMA / df_mse$Naive)
 )
 
-df_r2
+
+# R2 OOS par rapport à la prévision du modèle ARIMA 
+df_r2_modele_arima <- tibble(
+  Critere        = "R2_OOS modèle ARIMA",
+  Naive          = 1 - (df_mse$Naive / df_mse$ARIMA),
+  ARIMA          = NA,
+  Holt_Winters   = 1 - (df_mse$Holt_Winters / df_mse$ARIMA),
+  ADAM_ETS       = 1 - (df_mse$ADAM_ETS / df_mse$ARIMA),
+  ADAM_ETS_ARIMA = 1 - (df_mse$ADAM_ETS_ARIMA / df_mse$ARIMA),
+  SSARIMA        = 1 - (df_mse$SSARIMA / df_mse$ARIMA)
+)
 
 
 # Tableau récapitulatif des performances de prévision : MSE et R2 OOS
-df_mse_r2 <- bind_rows(df_mse, df_r2)
+df_mse_r2 <- bind_rows(
+  df_mse, 
+  df_r2_modele_naif, 
+  df_r2_modele_arima
+)
+
 df_mse_r2
 ```
 
@@ -808,32 +828,37 @@ df_mse_r2
 ## 5.3.  Erreurs de prévision cumulées au carré (CSPE)
 
 ```{r}
-df_previsions_2019 <- tibble(
-  Date           = cac40_prev$date,
-  ARIMA          = as.numeric(prev_arima),
-  Holt_Winters   = as.numeric(prev_hw),
-  ADAM_ETS       = as.numeric(prev_adam_ets),
-  ADAM_ETS_ARIMA = as.numeric(prev_adam_ets_arima),
-  SSARIMA        = as.numeric(prev_ssarima),
-  Realisation    = as.numeric(log_cac40_prev_ts)
+# Erreurs de prévision au carré (SPE)
+df_spe <- tibble(
+  Date           = month(
+    cac40_prev$date, label = TRUE, locale = "fr_FR.UTF-8"
+  ),
+  Naive          = df_erreurs_prevision$Naive^2,
+  ARIMA          = df_erreurs_prevision$ARIMA^2,
+  Holt_Winters   = df_erreurs_prevision$Holt_Winters^2,
+  ADAM_ETS       = df_erreurs_prevision$ADAM_ETS^2,
+  ADAM_ETS_ARIMA = df_erreurs_prevision$ADAM_ETS_ARIMA^2,
+  SSARIMA        = df_erreurs_prevision$SSARIMA^2
 )
+
+df_spe
+
+
+# Erreurs de prévision cumulées au carré (CSPE)
+df_cspe <- df_spe |>
+  mutate(
+    Naive          = cumsum(Naive),
+    ARIMA          = cumsum(ARIMA),
+    Holt_Winters   = cumsum(Holt_Winters),
+    ADAM_ETS       = cumsum(ADAM_ETS),
+    ADAM_ETS_ARIMA = cumsum(ADAM_ETS_ARIMA),
+    SSARIMA        = cumsum(SSARIMA)
+  )
+
+df_cspe
 ```
 
 ```{r}
-# CSPE
-df_cspe <- tibble(
-  Date           = cac40_prev$date,
-  Naive = sum((log_cac40_prev_ts - prev_naive)^2),
-  ARIMA = sum((log_cac40_prev_ts - prev_arima)^2),
-  Holt_Winters = sum((log_cac40_prev_ts - prev_hw)^2),
-  ADAM_ETS = sum((log_cac40_prev_ts - prev_adam_ets)^2),
-  ADAM_ETS_ARIMA = sum((log_cac40_prev_ts - prev_adam_ets_arima)^2),
-  SSARIMA = sum((log_cac40_prev_ts - prev_ssarima)^2)
-)
-
-df_cspe
-
-
 # Vecteur couleurs pour les différents modèles
 couleurs_modeles <- c(
   "Naive" = "#F4A300",
@@ -847,57 +872,25 @@ couleurs_modeles <- c(
 # Graphique de l'erreur quadratique cumulée pour chaque modèle
 df_cspe |> 
   pivot_longer(
-    cols = -Critere, 
-    names_to = "Modeles", 
+    cols = -Date, 
+    names_to = "Modele", 
     values_to = "CSPE"
   ) |> 
   ggplot() +
   aes(
-    x = Modeles, 
+    x = Date, 
     y = CSPE, 
-    color = Modeles
+    color = Modele,
+    group = Modele
   ) +
   geom_line(size = 1.2) +
   labs(
-    x = "Modèles", 
-    y = "Erreur quadratique cumulée (CSPE)"
+    x = "Date", 
+    y = "Erreur quadratique cumulée"
   ) +
   scale_color_manual(values = couleurs_modeles) +
   theme_bw(base_size = 13) +
   theme(legend.title = element_blank())
-```
-cumul non pris en compte
-
-```{r}
-errors_cumul <- tibble(
-   Mois = rep(1:12, times = 6),
-   Erreur_carrée = c(
-     (log_cac40_prev_ts- prev_naive)^2,
-     (log_cac40_prev_ts- prev_adam_ets)^2,
-     (log_cac40_prev_ts - prev_adam_ets_arima)^2,
-     (log_cac40_prev_ts - prev_arima)^2,
-     (log_cac40_prev_ts - prev_hw)^2,
-     (log_cac40_prev_ts - prev_ssarima)^2
-   ),
-   Modèle = rep(c("Naive", "ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"), each = 12)
-)
-errors_cumul
- 
- # Calcul de l’erreur cumulée
- errors_cumul <- errors_cumul %>%
-   group_by(Modèle) %>%
-   mutate(Erreur_cum = cumsum(Erreur_carrée))
- 
- # Graphique des erreurs cumulées
- ggplot(errors_cumul, aes(x = Mois, y = Erreur_cum, color = Modèle)) +
-   geom_line(size = 1.2) +
-   labs(
-     x = "Mois",
-     y = "Erreur cumulée",
-     color = "Modèle"
-   ) +
-   theme_minimal(base_size = 13)
-
 ```
 
 
@@ -906,51 +899,61 @@ errors_cumul
 
 # 6. Test de précision
 
-
-```{r}
-# Calcul des erreurs pour chaque modèle
-err_adam       <- log_cac40_prev_ts - prev_adam_ets
-err_adamarima  <- log_cac40_prev_ts - prev_adam_ets_arima
-err_arima      <- log_cac40_prev_ts - prev_arima
-err_hw         <- log_cac40_prev_ts - prev_hw
-err_ssarima    <- log_cac40_prev_ts - prev_ssarima
-
-# Prévision naïve : moyenne constante
-# Calculer la prévision naïve en utilisant la dernière valeur observée
-naive_forecast <- rep(log_cac40_prev_ts[1], length(log_cac40_prev_ts))
-
-# Calcul de l'erreur pour la prévision naïve
-err_naive      <- log_cac40_prev_ts - naive_forecast
-
-
-```
-
-
 ```{r}
 # Tests DM : modèle vs prévision naïve (h = 1 car horizon = 1 par point)
-dm_adam <- dm.test(err_adam, err_naive, h = 1, alternative = "less")
-dm_adamarima <- dm.test(err_adamarima, err_naive, h = 1, alternative = "less")
-dm_arima <- dm.test(err_arima, err_naive, h = 1, alternative = "less")
-dm_hw <- dm.test(err_hw, err_naive, h = 1, alternative = "less")
-dm_ssarima <- dm.test(err_ssarima, err_naive, h = 1, alternative = "less")
+
+dm_arima <- dm.test(
+  df_erreurs_prevision$Naive,
+  df_erreurs_prevision$ARIMA,
+  alternative = "less",
+  h = 1
+)
+
+dm_hw <- dm.test(
+  df_erreurs_prevision$Naive,
+  df_erreurs_prevision$Holt_Winters,
+  alternative = "less",
+  h = 1
+)
+
+# dm_adam_ets <- dm.test(
+#   df_erreurs_prevision$Naive,
+#   df_erreurs_prevision$ADAM_ETS,
+#   alternative = "less",
+#   h = 1
+# )
+
+dm_adam_ets_arima <- dm.test(
+  df_erreurs_prevision$Naive,
+  df_erreurs_prevision$ADAM_ETS_ARIMA,
+  alternative = "less",
+  h = 1
+)
+
+dm_ssarima <- dm.test(
+  df_erreurs_prevision$Naive,
+  df_erreurs_prevision$SSARIMA, 
+  alternative = "less",
+  h = 1
+)
 ```
 
+Les prévisions des modèles naïf et ADAM_ETS sont identiques sur l'ensemble de l'échantillon, produisant à chaque date exactement les mêmes valeurs. En conséquence, leurs erreurs de prévision sont strictement égales.
+Le test de Diebold-Mariano, qui évalue la performance relative de deux modèles en analysant la variance des différences d'erreurs, ne peut être appliqué ici : la variance étant nulle, aucune supériorité statistique ne peut être établie. C'est pourquoi le test n'a pas pu être réalisé entre les deux modèles.
 
 
 ```{r}
-library(tibble)
+# p-value du test pour chacun des modèles
 
-tibble(
-  Modèle = c("ADAM.ETS", "ADAM.ETS.ARIMA", "ARIMA", "Holt-Winters", "SSARIMA"),
-  p_value_DM_naive = c(
-    dm_adam$p.value,
-    dm_adamarima$p.value,
-    dm_arima$p.value,
-    dm_hw$p.value,
-    dm_ssarima$p.value
-  )
+df_dm_pvalue <- tibble(
+  ARIMA          = dm_arima$p.value,
+  Holt_Winters   = dm_hw$p.value,
+  ADAM_ETS       = NA,
+  ADAM_ETS_ARIMA = dm_adam_ets_arima$p.value,
+  SSARIMA        = dm_ssarima$p.value
 )
 
+df_dm_pvalue
 ```
 
 
@@ -959,62 +962,81 @@ tibble(
 
 # 7. Prévision à 1 pas du meilleur modèle de la question 6
 
-```{r}
-# Initialisation
-estimation <- log_cac40_ts
+## 1. Prévision
 
-# Prévisions pour 12 périodes
-prevision <- map_dbl(1:12, function(i) {
+```{r}
+# Série complète avec toutes les observations
+cac40_complet <- ts(
+  c(log_cac40_ts, log_cac40_prev_ts), 
+  frequency = 12
+)
+
+# Nombre de mois pour l'estimation
+nb_estim <- 228
+
+# Nombre de mois pour la prévision
+nb_prev <- 12
+
+# Prévisions à 1 pas pour les 12 mois
+df_previsions_2019_un_pas <- map(1:nb_prev, function(i) {
   
-  # Ajout de la dernière valeur observée avant la prévision
-  if (i > 1) {
-    estimation <- ts(
-      c(log_cac40_ts, log_cac40_prev_ts[1:(i - 1)]), 
-      frequency = 12
-    )
-  }
+  # Sélection des observations pour l'estimation
+  cac40_realisation <- cac40_complet[i:(nb_estim-1+i)]
   
-  # Prévision à un pas
-  forecast(
-    auto.adam(
-      estimation,
-      model = "ZZN",
-      lags = c(1, 12),
-      orders = list(ar = c(3, 3), i = 2, ma = c(3, 3), select = TRUE)
-    ), 
+  # Modèle ETS(ANN) + SARIMA(0,1,1)[12]
+  cac40_modele <- adam(
+    cac40_realisation,
+    model = "ANN", 
+    orders = list(seasonal = c(0,1,1)),
+    seasonal = 12
+  )
+  
+  # Prévision à 1 pas
+  cac40_prevision <- forecast(
+    cac40_modele, 
     h = 1, 
     level = 0.90
-  )$mean[1]
-})
+  )
+  
+  # Résultats
+  tibble(
+    Date = month(cac40_prev$date, label = TRUE, locale = "fr_FR.UTF-8")[i], 
+    Prévision = cac40_prevision$mean, 
+    Réalisation = log(cac40_prev$cloture)[i]
+  )
+}) |> 
+  bind_rows()
 
-prevision
+df_previsions_2019_un_pas
 ```
 
 
+
+
+## 2. Graphique
+
 ```{r}
-# Dataframe avec les dates, les prévisions du modèle et les réalisations
-
-df <- tibble(
-  Date = cac40_prev$date,
-  Prévision = prevision,
-  Réalisation = log(cac40_prev$cloture)
-)
-
-
-# Graphique
-
-df |> 
+df_previsions_2019_un_pas |> 
+  pivot_longer(
+    cols = -Date, 
+    names_to = "Type", 
+    values_to = "Prediction"
+  ) |> 
   ggplot() +
-  aes(x = Date) +
-  geom_line(aes(y = Prévision, color = "Prévision"), size = 1) +
-  geom_line(aes(y = Réalisation, color = "Réalisation"), size = 1) +
-  labs(
-    title = "Comparaison des prévisions et des réalisations",
-    x = "Date",
-    y = "Valeur",
-    color = "Série"
+  aes(
+    x = Date, 
+    y = Prediction, 
+    color = Type,
+    group = Type
   ) +
-  scale_color_manual(values = c("Prévision" = "blue", "Réalisation" = "red")) +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5))
+  geom_line(size = 1.2) +
+  labs(
+    x = "Date", 
+    y = "Valeur prédite"
+  ) +
+  scale_color_manual(
+    values = c("Prévision" = "red", "Réalisation" = "black")
+  ) +
+  theme_bw(base_size = 13) +
+  theme(legend.title = element_blank())
 ```
