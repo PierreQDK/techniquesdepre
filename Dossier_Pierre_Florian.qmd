@@ -34,7 +34,6 @@ library(smooth)
 library(gridExtra)
 ```
 
-
 # 1. Analyse préliminaire
 
 ## a. Présentation et caractérisation de la série étudiée : source, définition, graphique
@@ -85,7 +84,6 @@ Elle concerne l’indice CAC 40, qui regroupe les 40 plus grandes entreprises fr
 
 La série temporelle mensuelle commence en janvier 2000 et se termine en décembre 2019, couvrant ainsi une période de 20 ans.
 
-
 ```{r}
 # Classe time series
 
@@ -104,9 +102,6 @@ cac40_prev_ts <- ts(
 plot.ts(cac40_ts)
 plot.ts(cac40_prev_ts)
 ```
-
-
-
 
 ## b. Détection des points atypiques, détermination du caractère multiplicatif ou additif du schéma et vérification de la saisonnalité
 
@@ -137,9 +132,7 @@ s_transform(regx13_1)
 # plot(regx13_1)
 ```
 
-La série a nécessité une transformation logarithmique, indiquant une structure multiplicative.
-Trois points atypiques significatifs au seuil de 1 % ont été détectés : un AO en septembre 2002, un TC en septembre 2001 et un LS en janvier 2008.
-
+La série a nécessité une transformation logarithmique, indiquant une structure multiplicative. Trois points atypiques significatifs au seuil de 1 % ont été détectés : un AO en septembre 2002, un TC en septembre 2001 et un LS en janvier 2008.
 
 ```{r}
 # Série corrigée des points atypiques et transformée en logarithme.
@@ -172,7 +165,6 @@ s_transform(regx13_2)
 
 Aucun point atypique n'a été détecté et aucune transformation logarithmique n'a été nécessaire. Nous conservons donc la série corrigée log_cac40_ts.
 
-
 ```{r}
 # Autre méthode de détection des points atypiques
 
@@ -192,12 +184,10 @@ tso(serie_ajustee_tso_2)
 par(mfrow = c(1, 2))
 plot(serie_ajustee_tso_2)
 plot(cac40_ts)
-par(mfrow = c(1, 2))
+par(mfrow = c(1, 1))
 ```
 
 On retrouve les mêmes points atypiques.
-
-
 
 ### 2. Saisonnalité
 
@@ -211,7 +201,6 @@ show(sd)
 
 Le test des variables muettes saisonnières (seasdum) a été appliqué à la série temporelle log_cac40_ts afin de détecter la présence d’une composante saisonnière. La statistique de test obtenue est de 1.23, avec une p-value associée de 0.2691775. Cette p-value étant supérieure aux seuils usuels de signification (5 % ou même 10 %), on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. Cela signifie qu’il n’existe pas de preuve statistique suffisante pour affirmer que la série CAC 40 présente une variation régulière et récurrente selon les périodes.
 
-
 ```{r}
 # Webel-Ollech test
 wot <- combined_test(log_cac40_ts)
@@ -219,9 +208,6 @@ show(wot)
 ```
 
 Le test combiné de type WO (Webel-Ollech) a été réalisé sur la série log_cac40_ts afin de détecter d’éventuels effets saisonniers ou calendaires. La statistique de test obtenue est 0, ce qui indique l'absence d’effet saisonnier détecté par le test. Les p-values associées aux différents sous-tests (1, 1 et 0.3373112) sont toutes bien supérieures au seuil classique de 5 %, ce qui signifie que l’on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. En conclusion, le test ne met pas en évidence de structure saisonnière ou calendaire significative dans la série analysée.
-
-
-
 
 ## c. Vérifier la stationnarité de la série I(0) ou I(1)
 
@@ -241,7 +227,6 @@ summary(adf_test)
 
 Le test de Dickey-Fuller Augmenté (ADF) a été appliqué à la série logarithmique du CAC40 pour évaluer la présence d’une racine unitaire, indicatrice de non-stationnarité. La statistique de test obtenue est de -2.1351, tandis que les valeurs critiques aux seuils de 1%, 5% et 10% sont respectivement -3.46, -2.88 et -2.57. Étant donné que la statistique est supérieure à ces seuils, nous ne pouvons pas rejeter l’hypothèse nulle de non-stationnarité. Ce résultat suggère donc que la série n’est pas stationnaire selon ce test.
 
-
 #### 2. Test de Philips et Perron (PP)
 
 ```{r}
@@ -257,7 +242,6 @@ summary(pp_test)
 
 Le test de Phillips-Perron (PP), qui vise également à détecter une racine unitaire tout en étant plus robuste à l’hétéroscédasticité, a fourni une statistique de test Z-tau de -2.1828. Cette valeur reste supérieure aux valeurs critiques à 1%, 5% et 10%, qui sont respectivement -3.4605, -2.8743 et -2.5735. Ainsi, l’hypothèse nulle de racine unitaire n’est pas rejetée, ce qui confirme le résultat du test ADF et indique également une non-stationnarité de la série.
 
-
 #### 3. Test de KPSS
 
 ```{r}
@@ -272,11 +256,9 @@ summary(kpss_test)
 
 Le test KPSS fonctionne à l’inverse des deux précédents en testant l’hypothèse nulle de stationnarité. Pour notre série, la statistique de test est de 0.3004, inférieure aux valeurs critiques à 10%, 5%, 2.5% et 1% (0.347, 0.463, 0.574 et 0.739 respectivement). Dans ce cas, on ne rejette pas l’hypothèse nulle de stationnarité, ce qui contraste avec les conclusions des tests ADF et PP.
 
-
 #### 4. Conclusion
 
 Les résultats des tests unitaires sont contradictoires. Alors que les tests ADF et PP ne rejettent pas l’hypothèse de non-stationnarité, le test KPSS n’invalide pas l’hypothèse de stationnarité. Cette divergence peut être le signe que la série est proche d’un comportement de racine unitaire ou que certains effets limites (comme un bruit élevé ou un choix de modèle inadapté) faussent les résultats. Face à cette divergence, il est pertinent de différencier la série et de réévaluer sa stationnarité.
-
 
 ### 2. Différenciation de la série
 
@@ -287,7 +269,6 @@ ts.plot(diff_log_cac40_ts)
 ```
 
 Afin de corriger la non-stationnarité détectée par les tests ADF et PP, nous avons appliqué une différenciation première à la série logarithmique du CAC40. Cette transformation permet de stabiliser la moyenne de la série et d’atténuer les effets de tendance.
-
 
 ### 3. Tester la stationnarité après différenciation
 
@@ -305,7 +286,6 @@ summary(adf_test)
 
 Après différenciation, la statistique de test ADF est de -10.759, ce qui est largement inférieur aux valeurs critiques à 1%, 5% et 10% (-2.58, -1.95, -1.62). Ce résultat très significatif nous permet de rejeter fermement l’hypothèse nulle de non-stationnarité. Ainsi, la série différenciée est stationnaire selon le test ADF.
 
-
 #### 2. Test de Philips et Perron (PP)
 
 ```{r}
@@ -321,7 +301,6 @@ summary(pp_test)
 
 Le test PP appliqué à la série différenciée donne une statistique Z-tau de -13.1645, une valeur également très inférieure aux seuils critiques de -3.4606, -2.8744 et -2.5736. Cela confirme que l’hypothèse de racine unitaire est nettement rejetée, et que la stationnarité est bien atteinte après transformation.
 
-
 #### 3. Test de KPSS
 
 ```{r}
@@ -335,12 +314,9 @@ summary(kpss_test)
 
 Le test KPSS retourne une statistique de 0.1174, largement en dessous des seuils critiques à 10%, 5%, 2.5% et 1% (0.347, 0.463, 0.574, 0.739). On ne rejette donc pas l’hypothèse de stationnarité, ce qui vient confirmer les résultats des tests ADF et PP.
 
-
 #### 4. Conclusion
 
 Les trois tests convergent désormais vers une même conclusion : la série devient stationnaire après différenciation. Les tests ADF et PP rejettent l’hypothèse de racine unitaire, tandis que le test KPSS valide la stationnarité. Par conséquent, la transformation appliquée permet de rendre la série adaptée à des analyses économétriques plus avancées.
-
-
 
 ### 4. Corrélogrammes
 
@@ -362,9 +338,6 @@ grid.arrange(acf_graph1, acf_graph2, ncol = 2)
 
 Avant différenciation, la série, non stationnaire (intégrée d'ordre 1, I(1)), présente des autocorrélations significatives aux premiers retards, ce qui suggère la présence d'une racine unitaire et confirme l'absence de stationnarité. Après différenciation, l'ACF révèle une légère autocorrélation aux premier et troisième retards, tandis que les autres retards présentent des autocorrélations non significatives, indiquant que la série est devenue stationnaire (I(0)). Ainsi, bien que quelques autocorrélations résiduelles subsistent aux premiers retards, l'absence d'autocorrélations significatives aux retards plus élevés confirme que la différenciation a permis d'éliminer la non-stationnarité, rendant la série appropriée pour des analyses économétriques.
 
-
-
-
 ## d. Statistiques descriptives (moyenne, écart-type, skewness, kurtosis normalité, box-plot …).
 
 ### 1. Statistiques
@@ -376,8 +349,6 @@ stats <- basicStats(log_cac40_ts)
 show(stats)
 ```
 
-
-
 ### 2. Normalité
 
 ```{r}
@@ -385,8 +356,6 @@ shapiro.test(log_cac40_ts)
 ```
 
 La p-value de 4.259e-05, très inférieure au seuil de 5 %, indique que l'hypothèse nulle de normalité est rejetée au seuil de risque de 5 %. Cela signifie que les données ne suivent pas une distribution normale. Ainsi, la série du CAC 40 n'est pas normalement distribuée d'après le test de Shapiro-Wilk.
-
-
 
 ### 3. Boîte à moustache
 
@@ -423,14 +392,10 @@ log_cac40_ts |>
   )
 ```
 
-
-
-
-
 # 2. Estimation des modèles linéaires de janvier 2000 à décembre 2018
 
-a. Estimer et commenter les paramètres des modèles AR(1), AR(p) et ARIMA(p,d,q) et de la méthode LED Holt-Winters, ADAM ETS, ADAM ETS ARIMA, SSARIMA et CES 
-b. Paramètres : présenter sous forme de tableau les paramètres des modèles précédents. Déterminer et commenter le meilleur modèle d’après les critères AIC et AICc 
+a.  Estimer et commenter les paramètres des modèles AR(1), AR(p) et ARIMA(p,d,q) et de la méthode LED Holt-Winters, ADAM ETS, ADAM ETS ARIMA, SSARIMA et CES
+b.  Paramètres : présenter sous forme de tableau les paramètres des modèles précédents. Déterminer et commenter le meilleur modèle d’après les critères AIC et AICc
 
 ```{r}
 # Fonction pour afficher 4 graphiques
@@ -463,9 +428,6 @@ tstat
 plot(modele_arima$fitted)
 ```
 
-
-
-
 ## 2.2. Méthode du lissage Exponentiel Double (LED) de Holt-Winters
 
 ### 2.2.1. Estimation du modèle
@@ -484,8 +446,6 @@ plot(modele_hw)
 # Graphique des valeurs ajustées
 plot(modele_hw$fitted[,1])
 ```
-
-
 
 ### 2.2.2. AIC et AICc
 
@@ -508,9 +468,6 @@ aicc_hw <- aic_hw + (2 * k * (k + 1)) / (n - k - 1)
 cat("AIC du modèle Holt-Winters :", round(aic_hw, 2), "\n")
 cat("AICc du modèle Holt-Winters :", round(aicc_hw, 2), "\n")
 ```
-
-
-
 
 ## 2.3. Modèle ADAM ETS (Error-Trend-Seasonal)
 
@@ -543,8 +500,6 @@ plot4(modele_adam_ets)
 plot(modele_adam_ets$fitted)
 ```
 
-
-
 ### 2.3.2. AIC et AICc
 
 ```{r}
@@ -554,9 +509,6 @@ cat("AIC du modèle ADAM ETS :", round(aic_adam_ets, 2), "\n")
 aicc_adam_ets <- AICc(modele_adam_ets)
 cat("AICc du modèle ADAM ETS :", round(aicc_adam_ets, 2), "\n")
 ```
-
-
-
 
 ## 2.4. Modèle ADAM ETS-ARIMA (modèle hybride)
 
@@ -595,8 +547,6 @@ plot4(modele_adam_ets_arima)
 plot(modele_adam_ets_arima$fitted)
 ```
 
-
-
 ### 2.4.2. AIC et AICc
 
 ```{r}
@@ -606,9 +556,6 @@ cat("AIC du modèle ADAM ETS+ARIMA :", round(aic_adam_ets_arima, 2), "\n")
 aicc_adam_ets_arima <- AICc(modele_adam_ets_arima)
 cat("AICc du modèle ADAM ETS+ARIMA :", round(aicc_adam_ets_arima, 2), "\n")
 ```
-
-
-
 
 ## 2.5. Modèle SSARIMA (State Space ARIMA)
 
@@ -642,8 +589,6 @@ plot4(modele_ssarima)
 plot(modele_ssarima$fitted)
 ```
 
-
-
 ### 2.5.2. AIC et AICc
 
 ```{r}
@@ -653,10 +598,6 @@ cat("AIC du modèle SSARIMA :", round(aic_ssarima, 2), "\n")
 aicc_ssarima <- AICc(modele_ssarima)
 cat("AICc du modèle SSARIMA :", round(aicc_ssarima, 2), "\n")
 ```
-
-
-
-
 
 # 3. Prévision linéaire sur l'année 2019
 
@@ -686,9 +627,6 @@ prev_arima <- prevision_arima$mean
 show(prev_arima)
 ```
 
-
-
-
 ## 3.2. Méthode du lissage Exponentiel Double (LED) de Holt-Winters
 
 ```{r}
@@ -713,9 +651,6 @@ prev_hw <- prevision_hw$mean
 show(prev_hw)
 ```
 
-
-
-
 ## 3.3. Modèle ADAM ETS (Error-Trend-Seasonal)
 
 ```{r}
@@ -730,7 +665,7 @@ prevision_adam_ets <- forecast(
 
 show(prevision_adam_ets)
 
-plot(prevision_adam_ets)
+plot(prevision_adam_ets, main = "")
 
 # Informations sur le modèle ajusté
 modele_prevision_adam_ets <- prevision_adam_ets$model
@@ -740,9 +675,6 @@ show(modele_prevision_adam_ets)
 prev_adam_ets <- prevision_adam_ets$mean
 show(prev_adam_ets)
 ```
-
-
-
 
 ## 3.4. Modèle ADAM ETS-ARIMA (modèle hybride)
 
@@ -758,7 +690,7 @@ prevision_adam_ets_arima <- forecast(
 
 show(prevision_adam_ets_arima)
 
-plot(prevision_adam_ets_arima)
+plot(prevision_adam_ets_arima, main = "")
 
 # Informations sur le modèle ajusté
 modele_prevision_adam_ets_arima <- prevision_adam_ets_arima$model
@@ -768,9 +700,6 @@ show(modele_prevision_adam_ets_arima)
 prev_adam_ets_arima <- prevision_adam_ets_arima$mean
 show(prev_adam_ets_arima)
 ```
-
-
-
 
 ## 3.5. Modèle SSARIMA (State Space ARIMA)
 
@@ -793,10 +722,7 @@ prev_ssarima <- prevision_ssarima$mean
 show(prev_ssarima)
 ```
 
-
-
-
-## 3.6. Résultats 
+## 3.6. Résultats
 
 ```{r}
 # Prévisions et série réalisée
@@ -817,10 +743,6 @@ df_previsions_2019
 
 # View(df_previsions_2019)
 ```
-
-
-
-
 
 # 4. Représentation graphique de l’évolution des prévisions des différents modèles
 
@@ -859,12 +781,7 @@ df_previsions_2019 |>
   theme(legend.title = element_blank())
 ```
 
-
-
-
-
-
-# 5. Qualité de prévision 
+# 5. Qualité de prévision
 
 ## 5.1. Modèle naïf
 
@@ -887,10 +804,7 @@ prev_naive <- prevision_naive$mean
 show(prev_naive)
 ```
 
-
-
-
-## 5.2.  MSE et R2oo
+## 5.2. MSE et R2oo
 
 ```{r}
 # Erreurs de prévision
@@ -956,10 +870,7 @@ df_mse_r2 <- bind_rows(
 df_mse_r2
 ```
 
-
-
-
-## 5.3.  Erreurs de prévision cumulées au carré (CSPE)
+## 5.3. Erreurs de prévision cumulées au carré (CSPE)
 
 ```{r}
 # Erreurs de prévision au carré (SPE)
@@ -1027,10 +938,6 @@ df_cspe |>
   theme(legend.title = element_blank())
 ```
 
-
-
-
-
 # 6. Test de précision
 
 ```{r}
@@ -1072,9 +979,7 @@ dm_ssarima <- dm.test(
 )
 ```
 
-Les prévisions des modèles naïf et ADAM_ETS sont identiques sur l'ensemble de l'échantillon, produisant à chaque date exactement les mêmes valeurs. En conséquence, leurs erreurs de prévision sont strictement égales.
-Le test de Diebold-Mariano, qui évalue la performance relative de deux modèles en analysant la variance des différences d'erreurs, ne peut être appliqué ici : la variance étant nulle, aucune supériorité statistique ne peut être établie. C'est pourquoi le test n'a pas pu être réalisé entre les deux modèles.
-
+Les prévisions des modèles naïf et ADAM_ETS sont identiques sur l'ensemble de l'échantillon, produisant à chaque date exactement les mêmes valeurs. En conséquence, leurs erreurs de prévision sont strictement égales. Le test de Diebold-Mariano, qui évalue la performance relative de deux modèles en analysant la variance des différences d'erreurs, ne peut être appliqué ici : la variance étant nulle, aucune supériorité statistique ne peut être établie. C'est pourquoi le test n'a pas pu être réalisé entre les deux modèles.
 
 ```{r}
 # p-value du test pour chacun des modèles
@@ -1089,10 +994,6 @@ df_dm_pvalue <- tibble(
 
 df_dm_pvalue
 ```
-
-
-
-
 
 # 7. Prévision à 1 pas du meilleur modèle de la question 6
 
@@ -1120,9 +1021,14 @@ df_previsions_2019_un_pas <- map(1:nb_prev, function(i) {
   # Modèle ETS(ANN) + SARIMA(0,1,1)[12]
   cac40_modele <- adam(
     cac40_realisation,
-    model = "ANN", 
-    orders = list(seasonal = c(0,1,1)),
-    seasonal = 12
+    model = "ANN",
+    lags = c(1, 12),
+    orders = list(
+      ar = c(0, 0),
+      i  = c(0, 1),
+      ma = c(0, 1)
+    ),
+    bounds = "admissible"
   )
   
   # Prévision à 1 pas
@@ -1143,9 +1049,6 @@ df_previsions_2019_un_pas <- map(1:nb_prev, function(i) {
 
 df_previsions_2019_un_pas
 ```
-
-
-
 
 ## 2. Graphique
 
@@ -1174,5 +1077,3 @@ df_previsions_2019_un_pas |>
   theme_bw(base_size = 13) +
   theme(legend.title = element_blank())
 ```
-
-
