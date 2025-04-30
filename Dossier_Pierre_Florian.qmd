@@ -195,19 +195,19 @@ On retrouve les mêmes points atypiques.
 # Seasonal dummies
 library(TSA)
 library(seastests)
-sd <- seasdum(log_cac40_ts)
+sd <- seasdum(cac40_ts)
 show(sd)
 ```
 
-Le test des variables muettes saisonnières (seasdum) a été appliqué à la série temporelle log_cac40_ts afin de détecter la présence d’une composante saisonnière. La statistique de test obtenue est de 1.23, avec une p-value associée de 0.2691775. Cette p-value étant supérieure aux seuils usuels de signification (5 % ou même 10 %), on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. Cela signifie qu’il n’existe pas de preuve statistique suffisante pour affirmer que la série CAC 40 présente une variation régulière et récurrente selon les périodes.
+Le test des variables muettes saisonnières (seasdum) a été appliqué à la série temporelle cac40_ts afin de détecter la présence d’une composante saisonnière. La statistique de test obtenue est de 1.55, avec une p-value associée de 0.1155659. Cette p-value étant supérieure au seuil de signification de 5 %, on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. Cela signifie qu’il n’existe pas de preuve statistique suffisante pour affirmer que la série CAC 40 présente une variation régulière et récurrente selon les périodes.
 
 ```{r}
 # Webel-Ollech test
-wot <- combined_test(log_cac40_ts)
+wot <- combined_test(cac40_ts)
 show(wot)
 ```
 
-Le test combiné de type WO (Webel-Ollech) a été réalisé sur la série log_cac40_ts afin de détecter d’éventuels effets saisonniers ou calendaires. La statistique de test obtenue est 0, ce qui indique l'absence d’effet saisonnier détecté par le test. Les p-values associées aux différents sous-tests (1, 1 et 0.3373112) sont toutes bien supérieures au seuil classique de 5 %, ce qui signifie que l’on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. En conclusion, le test ne met pas en évidence de structure saisonnière ou calendaire significative dans la série analysée.
+Le test combiné de type WO (Webel-Ollech) a été réalisé sur la série cac40_ts afin de détecter d’éventuels effets saisonniers ou calendaires. La statistique de test obtenue est 0, ce qui indique l'absence d’effet saisonnier détecté par le test. Les p-values associées aux différents sous-tests (1, 1 et 0.1129931) sont toutes bien supérieures au seuil classique de 5 %, ce qui signifie que l’on ne rejette pas l’hypothèse nulle d’absence de saisonnalité. En conclusion, le test ne met pas en évidence de structure saisonnière ou calendaire significative dans la série analysée.
 
 ## c. Vérifier la stationnarité de la série I(0) ou I(1)
 
@@ -690,7 +690,7 @@ prevision_adam_ets_arima <- forecast(
 
 show(prevision_adam_ets_arima)
 
-plot(prevision_adam_ets_arima, main = "")
+plot(prevision_adam_ets_arima)
 
 # Informations sur le modèle ajusté
 modele_prevision_adam_ets_arima <- prevision_adam_ets_arima$model
